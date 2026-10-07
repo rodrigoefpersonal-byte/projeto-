@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from . import ai, channels, db
+from .text import t
 
 app = FastAPI()
 CFG: dict = {}
@@ -27,18 +28,18 @@ async def receive(request: Request):
             for m in ch.get("value", {}).get("messages", []):
                 if m.get("type") != "text":
                     continue
-                handle(con, db.normalize_phone(m["from"]), m["text"]["body"])
+                handle(con, m["from"], m["text"]["body"])
     return {"ok": True}
 
 
 def handle(con, phone: str, text: str):
-    lead = con.execute("SELECT * FROM leads WHERE phone=?", (phone,)).fetchone()
+    lead = db.find_by_phone(con, phone)
     if not lead:
         return
     db.log_message(con, lead["id"], "in", "whatsapp", text)
     if db.is_optout_text(text):
         db.opt_out(con, phone)
-        channels.wa_send_text(phone, "Tudo certo, não vamos mais te enviar mensagens. Obrigado!")
+        channels.wa_send_text(phone, t(lead["lang"], "bye"))
         return
     history = [dict(r) for r in con.execute(
         "SELECT direction, body FROM messages WHERE lead_id=? ORDER BY id", (lead["id"],))]
@@ -57,4 +58,5 @@ def handle(con, phone: str, text: str):
 @app.get("/unsub", response_class=HTMLResponse)
 def unsub(e: str):
     db.opt_out(db.connect(), e)
-    return "<h3>Pronto, você não receberá mais nossos e-mails.</h3>"
+    lead = db.connect().execute("SELECT lang FROM leads WHERE lower(email)=?", (e.lower(),)).fetchone()
+    return f"<h3>{t(lead['lang'] if lead else None, 'unsub_ok')}</h3>"

@@ -20,13 +20,14 @@ def _ask(model: str, system: str, user: str, max_tokens=600) -> dict:
     return json.loads(m.group(0)) if m else {}
 
 
-def qualify(cfg: dict, lead: dict) -> dict:
+def qualify(cfg: dict, lead: dict, lang: str = "pt") -> dict:
     """-> {score:int, reason:str, message:str}. message = 1 frase de abertura (máx 200 caracteres)."""
     system = (
         "Você ajuda um editor de vídeo freelancer a prospectar clientes no Brasil. "
         "Responda APENAS com JSON: {\"score\":0-100,\"reason\":\"...\",\"message\":\"...\"}. "
+        f"IMPORTANTE: escreva 'message' no idioma '{lang}' (pt=português, es=español, en=English). "
         "score = chance do negócio precisar/pagar por edição de vídeo (vende por vídeo? tem redes sociais? "
-        "é negócio local ativo?). 'message' é UMA frase curta, natural, em português, que cita algo "
+        "é negócio local ativo?). 'message' é UMA frase curta, natural, no idioma indicado, que cita algo "
         "específico do negócio e conecta com vídeo. Sem exageros, sem emojis em excesso, sem mentir."
     )
     user = f"Oferta: {cfg['offer']}\nLead: {json.dumps(lead, ensure_ascii=False)}"
@@ -34,12 +35,13 @@ def qualify(cfg: dict, lead: dict) -> dict:
 
 
 def handle_reply(cfg: dict, lead: dict, history: list[dict], incoming: str) -> dict:
+    # responde no idioma em que o cliente escreveu
     """-> {intent: interested|question|not_interested|other, reply:str, needs_human:bool}"""
     system = (
         f"Você é assistente de {cfg['seller_name']}, editor de vídeo. Oferta: {cfg['offer']} "
         f"Portfólio: {cfg['portfolio_url']}. Responda APENAS JSON: "
         "{\"intent\":\"interested|question|not_interested|other\",\"reply\":\"...\",\"needs_human\":bool}. "
-        "Seja breve e cordial. Nunca invente preços, prazos ou condições que não estão na oferta. "
+        "Responda no mesmo idioma da mensagem do cliente. Seja breve e cordial. Nunca invente preços, prazos ou condições que não estão na oferta. "
         "Se o cliente quer fechar, pedir orçamento ou negociar, needs_human=true e reply curto avisando que "
         f"{cfg['seller_name']} vai responder em instantes. Se não tem interesse, agradeça e encerre."
     )

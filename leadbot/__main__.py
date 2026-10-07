@@ -9,8 +9,9 @@ from . import db, pipeline
 def main():
     load_dotenv()
     ap = argparse.ArgumentParser(prog="leadbot")
-    ap.add_argument("cmd", choices=["find", "qualify", "send", "run", "serve", "stats"])
+    ap.add_argument("cmd", choices=["find", "qualify", "send", "run", "serve", "stats", "dm", "dm-done"])
     ap.add_argument("--config", default="config.yaml")
+    ap.add_argument("ids", nargs="*", type=int, help="ids para dm-done")
     a = ap.parse_args()
     cfg = yaml.safe_load(open(a.config, encoding="utf-8"))
     con = db.connect()
@@ -22,6 +23,10 @@ def main():
     elif a.cmd == "stats":
         for r in con.execute("SELECT status, COUNT(*) n FROM leads GROUP BY status"):
             print(f"{r['status']:15}{r['n']}")
+    elif a.cmd == "dm":
+        pipeline.dm_queue(cfg, con)
+    elif a.cmd == "dm-done":
+        pipeline.dm_done(con, a.ids)
     else:
         getattr(pipeline, "run_all" if a.cmd == "run" else a.cmd)(cfg, con)
 

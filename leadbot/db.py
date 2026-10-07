@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS leads (
   id INTEGER PRIMARY KEY,
   source_id TEXT UNIQUE,
   name TEXT, niche TEXT, city TEXT,
+  country TEXT, lang TEXT, tz TEXT,
   phone TEXT, email TEXT, website TEXT, instagram TEXT, context TEXT,
   score INTEGER, reason TEXT, message TEXT,
   status TEXT NOT NULL DEFAULT 'new',
@@ -24,20 +25,28 @@ CREATE TABLE IF NOT EXISTS optout (contact TEXT PRIMARY KEY);
 """
 
 OPTOUT_WORDS = re.compile(
-    r"\b(pare|parar|sair|stop|remover|remova|descadastrar|n[aã]o quero|cancelar|spam)\b", re.I
+    r"\b(pare|parar|sair|stop|remover|remova|descadastrar|n[aã]o quero|cancelar|spam|"
+    r"baja|no quiero|dejar de|eliminar|no me escriban|unsubscribe|remove me|opt.?out|do not contact)\b",
+    re.I,
 )
 
 
-def normalize_phone(raw: str | None) -> str | None:
-    """Devolve só dígitos com DDI (assume Brasil se vier sem)."""
+def normalize_phone(raw: str | None, default_cc: str | None = "55") -> str | None:
+    """Só dígitos com DDI. Com '+', respeita o DDI; sem '+', usa default_cc se o número for local."""
     if not raw:
         return None
     digits = re.sub(r"\D", "", raw)
-    if digits.startswith("0"):
-        digits = digits.lstrip("0")
-    if len(digits) in (10, 11):
-        digits = "55" + digits
-    return digits if 12 <= len(digits) <= 13 else None
+    if not raw.strip().startswith("+") and default_cc and len(digits) <= 11:
+        digits = default_cc + digits.lstrip("0")
+    return digits if 10 <= len(digits) <= 15 else None
+
+
+def contact_key(contact: str) -> str:
+    """Chave de comparação: e-mail em minúsculas ou os últimos 10 dígitos do telefone
+    (evita diferenças como 52 1... do México e 54 9... da Argentina no WhatsApp)."""
+    if "@" in contact:
+        return contact.strip().lower()
+    return re.sub(r"\D", "", contact)[-10:]
 
 
 def is_optout_text(text: str) -> bool:
@@ -53,11 +62,13 @@ def connect(path: Path | str = DB_PATH) -> sqlite3.Connection:
 
 def add_lead(con, **f) -> bool:
     """Insere lead novo. Ignora duplicados e quem já pediu para sair."""
-    f["phone"] = normalize_phone(f.get("phone"))
-    for c in (f["phone"], (f.get("email") or "").lower() or None):
-        if c and con.execute("SELECT 1 FROM optout WHERE contact=?", (c,)).fetchone():
+    f["phone"] = normalize_phone(f.get("phone"), f.pop("cc", None))
+    keys = [contact_key(c) for c in (f["phone"], f.get("email")) if c]
+    for k in keys:
+        if con.execute("SELECT 1 FROM optout WHERE contact=?", (k,)).fetchone():
             return False
-    if f["phone"] and con.execute("SELECT 1 FROM leads WHERE phone=?", (f["phone"],)).fetchone():
+    if f["phone"] and con.execute(
+            "SELECT 1 FROM leads WHERE substr(phone,-10)=?", (contact_key(f["phone"]),)).fetchone():
         return False
     cols = ", ".join(f)
     marks = ", ".join("?" for _ in f)
@@ -66,10 +77,14 @@ def add_lead(con, **f) -> bool:
     return cur.rowcount == 1
 
 
+def find_by_phone(con, phone: str):
+    return con.execute("SELECT * FROM leads WHERE substr(phone,-10)=?", (contact_key(phone),)).fetchone()
+
+
 def opt_out(con, contact: str):
-    contact = normalize_phone(contact) or contact.lower()
-    con.execute("INSERT OR IGNORE INTO optout VALUES (?)", (contact,))
-    con.execute("UPDATE leads SET status='opted_out' WHERE phone=? OR lower(email)=?", (contact, contact))
+    k = contact_key(contact)
+    con.execute("INSERT OR IGNORE INTO optout VALUES (?)", (k,))
+    con.execute("UPDATE leads SET status='opted_out' WHERE substr(phone,-10)=? OR lower(email)=?", (k, k))
     con.commit()
 
 

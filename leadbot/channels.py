@@ -18,12 +18,12 @@ def _wa_post(payload: dict):
     return r.json()
 
 
-def wa_send_template(phone: str, name: str, opener: str):
+def wa_send_template(phone: str, name: str, opener: str, template: str, code: str):
     """Primeiro contato: o WhatsApp só permite template aprovado. Variáveis: {{1}}=nome, {{2}}=frase."""
     return _wa_post({
         "to": phone, "type": "template",
         "template": {
-            "name": os.environ["WA_TEMPLATE_NAME"], "language": {"code": "pt_BR"},
+            "name": template, "language": {"code": code},
             "components": [{"type": "body", "parameters": [
                 {"type": "text", "text": name[:60]}, {"type": "text", "text": opener[:250]}]}],
         },
@@ -35,12 +35,12 @@ def wa_send_text(phone: str, text: str):
     return _wa_post({"to": phone, "type": "text", "text": {"body": text}})
 
 
-def send_email(to: str, subject: str, body: str, lead_id: int):
+def send_email(to: str, subject: str, body: str, unsub_text: str = "Unsubscribe: {url}"):
     msg = EmailMessage()
     msg["From"], msg["To"], msg["Subject"] = os.environ["EMAIL_FROM"], to, subject
     unsub = f"{os.environ['PUBLIC_URL']}/unsub?e={to}"
     msg["List-Unsubscribe"] = f"<{unsub}>"
-    msg.set_content(f"{body}\n\n--\nNão quer mais receber? Clique: {unsub}")
+    msg.set_content(f"{body}\n\n--\n" + unsub_text.format(url=unsub))
     with smtplib.SMTP(os.environ["SMTP_HOST"], int(os.environ.get("SMTP_PORT", 587))) as s:
         s.starttls()
         s.login(os.environ["SMTP_USER"], os.environ["SMTP_PASS"])

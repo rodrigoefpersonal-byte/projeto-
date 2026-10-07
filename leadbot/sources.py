@@ -13,12 +13,12 @@ FIELDS = ",".join(
 ) + ",nextPageToken"
 
 
-def search_places(niche: str, city: str, max_results: int = 40, min_ratings: int = 0):
+def search_places(niche: str, city: str, max_results: int = 40, min_ratings: int = 0, lang: str = "pt"):
     headers = {
         "X-Goog-Api-Key": os.environ["GOOGLE_PLACES_API_KEY"],
         "X-Goog-FieldMask": FIELDS,
     }
-    body = {"textQuery": f"{niche} em {city}", "languageCode": "pt-BR", "pageSize": 20}
+    body = {"textQuery": f"{niche} {city}", "languageCode": lang, "pageSize": 20}
     found = 0
     while found < max_results:
         r = httpx.post(URL, json=body, headers=headers, timeout=30)
