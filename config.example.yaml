@@ -1,0 +1,24 @@
+# Quem é o cliente ideal e o que você oferece
+offer: >
+  Edição de vídeo profissional para Reels/TikTok/YouTube: cortes, legendas,
+  thumbnails e roteiro. Entrega em 48h. Primeiro vídeo de teste grátis.
+portfolio_url: "https://seu-portfolio.com"
+seller_name: "Rodrigo"
+
+search:
+  # combinações nicho x cidade; o robô percorre todas todos os dias
+  niches: ["clínica de estética", "dentista", "academia", "restaurante", "imobiliária", "coach"]
+  cities: ["São Paulo, SP", "Belo Horizonte, MG", "Curitiba, PR"]
+  min_rating_count: 10          # só negócios com alguma presença
+  max_results_per_query: 40
+
+qualify:
+  min_score: 60                 # 0-100; abaixo disso o lead é descartado
+  model: claude-haiku-5-5
+
+send:
+  channel_order: ["whatsapp", "email"]   # tenta nessa ordem
+  daily_limit: 40               # comece baixo e suba aos poucos (aquecimento)
+  delay_seconds: [45, 120]      # intervalo aleatório entre envios
+  hours: [9, 18]                # só envia em horário comercial
+  auto_reply: true              # IA responde dúvidas simples; você assume se houver interesse
