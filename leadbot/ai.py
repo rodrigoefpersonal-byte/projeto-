@@ -27,7 +27,7 @@ def qualify(cfg: dict, lead: dict, lang: str = "pt") -> dict:
         "Responda APENAS com JSON: {\"score\":0-100,\"reason\":\"...\",\"message\":\"...\"}. "
         f"IMPORTANTE: escreva 'message' no idioma '{lang}' (pt=português, es=español, en=English). "
         "score = chance do negócio precisar/pagar por edição de vídeo (vende por vídeo? tem redes sociais? "
-        "é negócio local ativo?). 'message' é UMA frase curta, natural, no idioma indicado, que cita algo "
+        "é negócio local ativo?). 'message' é UMA frase curta, natural (foque em UM benefício: 'você grava, eu cuido do resto', sem listar todo o pacote), no idioma indicado, que cita algo "
         "específico do negócio e conecta com vídeo. Sem exageros, sem emojis em excesso, sem mentir."
     )
     user = f"Oferta: {cfg['offer']}\nLead: {json.dumps(lead, ensure_ascii=False)}"

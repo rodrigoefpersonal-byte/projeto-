@@ -1,9 +1,10 @@
 # Quem é o cliente ideal e o que você oferece
 offer: >
-  Edição de vídeo profissional para Reels/TikTok/YouTube: cortes, legendas,
-  thumbnails e roteiro. Entrega em 48h. Primeiro vídeo de teste grátis.
-portfolio_url: "https://seu-portfolio.com"
-seller_name: "Rodrigo"
+  Serviço completo de vídeo: eu escrevo o roteiro e edito o vídeo (cortes, legendas,
+  thumbnail e acabamento), pronto para postar. Você só grava e me envia. Primeiro vídeo
+  de teste grátis. Valores: não informar preço; dizer que o Victor passa o orçamento.
+portfolio_url: "COLE_AQUI_O_LINK_DO_SEU_PORTFOLIO_OU_INSTAGRAM"
+seller_name: "Victor"
 
 search:
   niches:
@@ -24,9 +25,9 @@ qualify:
 
 send:
   channel_order: ["whatsapp", "email", "instagram"]   # tenta nessa ordem; instagram = fila manual
-  daily_limit: 40               # comece baixo e suba aos poucos (aquecimento)
+  daily_limit: 20               # comece baixo e suba aos poucos (aquecimento)
   delay_seconds: [45, 120]      # intervalo aleatório entre envios
   hours: [9, 18]                # horário comercial de Brasília (seg-sáb)
   whatsapp_templates:
     pt: {name: primeiro_contato_video_pt, code: pt_BR}   # template aprovado na Meta
-  auto_reply: true              # IA responde dúvidas simples; você assume se houver interesse
+  auto_reply: true              # IA responde SÓ a 1ª resposta do cliente; depois te avisa e você assume

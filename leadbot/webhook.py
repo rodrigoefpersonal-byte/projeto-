@@ -47,12 +47,14 @@ def handle(con, phone: str, text: str):
     con.execute("UPDATE leads SET status=? WHERE id=?",
                 ("not_interested" if res.get("intent") == "not_interested" else "replied", lead["id"]))
     con.commit()
-    if CFG["send"]["auto_reply"] and res.get("reply"):
+    n_in = con.execute("SELECT COUNT(*) FROM messages WHERE lead_id=? AND direction='in'", (lead["id"],)).fetchone()[0]
+    # a IA só atende a 1ª resposta do cliente; depois disso a conversa é sua
+    if CFG["send"]["auto_reply"] and n_in == 1 and res.get("reply"):
         channels.wa_send_text(phone, res["reply"])
         db.log_message(con, lead["id"], "out", "whatsapp", res["reply"])
-    if res.get("needs_human") or res.get("intent") == "interested":
+    if n_in > 1 or res.get("needs_human") or res.get("intent") == "interested":
         channels.wa_send_text(os.environ["OWNER_WHATSAPP"],
-                              f"🔥 Lead quente: {lead['name']} ({phone})\nDisse: {text}")
+                              f"🔥 Cliente respondeu: {lead['name']} ({phone})\nDisse: {text}")
 
 
 @app.get("/unsub", response_class=HTMLResponse)
