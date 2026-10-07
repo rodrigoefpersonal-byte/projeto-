@@ -1,7 +1,8 @@
-import csv
+import html
 import random
 import time
 from datetime import datetime
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from . import ai, channels, db, enrich, sources
@@ -59,15 +60,17 @@ def send(cfg, con):
     s = cfg["send"]
     sent_today = con.execute(
         "SELECT COUNT(*) FROM leads WHERE date(contacted_at)=date('now')").fetchone()[0]
-    room = s["daily_limit"] - sent_today
+    pending = con.execute("SELECT COUNT(*) FROM leads WHERE status='dm_queue'").fetchone()[0]
+    room = s["daily_limit"] - sent_today - pending
     queue = con.execute("SELECT * FROM leads WHERE status='qualified' ORDER BY score DESC").fetchall()
     for r in queue:
         if room <= 0:
             break
-        direct = [c for c in s["channel_order"] if (c == "whatsapp" and r["phone"]) or (c == "email" and r["email"])]
-        if direct and not _local_hour_ok(r["tz"], s["hours"]):
+        first = next((c for c in s["channel_order"] if (c in ("whatsapp", "whatsapp_manual") and r["phone"])
+                     or (c == "email" and r["email"]) or (c == "instagram" and r["instagram"])), None)
+        if first in ("whatsapp", "email") and not _local_hour_ok(r["tz"], s["hours"]):
             continue  # fora do horário comercial NO PAÍS do lead; fica para outra rodada
-        channel = None
+        channel = queue = None
         try:
             for ch in s["channel_order"]:
                 if ch == "whatsapp" and r["phone"]:
@@ -80,14 +83,22 @@ def send(cfg, con):
                         f"{t(r['lang'], 'hello')}\n\n{r['message']}\n\n{cfg['offer']}\n{cfg['portfolio_url']}\n\n{cfg['seller_name']}",
                         t(r["lang"], "unsub"))
                     channel = ch; break
+                if ch == "whatsapp_manual" and r["phone"]:
+                    queue = "whatsapp"
+                    break
                 if ch == "instagram" and r["instagram"]:
-                    con.execute("UPDATE leads SET status='dm_queue' WHERE id=?", (r["id"],)); con.commit()
-                    break  # fila manual; não conta no limite diário
+                    queue = "instagram"
+                    break
         except Exception as e:  # noqa: BLE001
             print(f"falha enviando p/ {r['name']}: {e}")
             con.execute("UPDATE leads SET status='failed' WHERE id=?", (r["id"],)); con.commit()
             continue
-        if channel:
+        if queue:  # fila manual: você clica e envia (ver `leadbot dm`)
+            con.execute("UPDATE leads SET status='dm_queue', queue_channel=? WHERE id=?", (queue, r["id"]))
+            con.commit()
+            room -= 1
+            print(f"na fila ({queue}): {r['name']}")
+        elif channel:
             con.execute("UPDATE leads SET status='contacted', contacted_at=datetime('now') WHERE id=?", (r["id"],))
             db.log_message(con, r["id"], "out", channel, r["message"])
             room -= 1
@@ -95,15 +106,33 @@ def send(cfg, con):
             time.sleep(random.uniform(*s["delay_seconds"]))
 
 
-def dm_queue(cfg, con, path="dm_queue.csv"):
-    """Instagram: a Meta não permite DM automático a quem não te escreveu. Gera a fila pronta para você enviar."""
-    rows = con.execute("SELECT id,name,country,instagram,message FROM leads WHERE status='dm_queue' ORDER BY score DESC").fetchall()
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["id", "negocio", "pais", "link_dm", "mensagem"])
-        for r in rows:
-            w.writerow([r["id"], r["name"], r["country"], f"https://ig.me/m/{r['instagram']}", r["message"]])
-    print(f"{len(rows)} DMs prontas em {path}")
+def full_text(cfg, r) -> str:
+    return (f"Olá, {r['name']}! {r['message']}\n\nSou o {cfg['seller_name']}: escrevo o roteiro e edito os seus vídeos "
+            f"(com thumbnail e tudo). Posso fazer um vídeo de teste grátis? Portfólio: {cfg['portfolio_url']}\n"
+            "Se não quiser receber mensagens, é só avisar.")
+
+
+def dm_queue(cfg, con, path="fila.html"):
+    """Gera uma página com os botões prontos. Instagram não permite DM automático; WhatsApp manual é o modo grátis."""
+    rows = con.execute("SELECT * FROM leads WHERE status='dm_queue' ORDER BY score DESC").fetchall()
+    cards = []
+    for r in rows:
+        text = full_text(cfg, r)
+        if r["queue_channel"] == "whatsapp":
+            btn = f'<a class="b" target="_blank" href="https://wa.me/{r["phone"]}?text={quote(text)}">Abrir WhatsApp com a mensagem</a>'
+        else:
+            btn = (f'<button class="b" onclick="navigator.clipboard.writeText(this.dataset.t)" data-t="{html.escape(text, quote=True)}">1. Copiar mensagem</button> '
+                   f'<a class="b" target="_blank" href="https://ig.me/m/{r["instagram"]}">2. Abrir Instagram</a>')
+        cards.append(f'<div class="c"><b>#{r["id"]} {html.escape(r["name"])}</b> <small>({r["city"]}, nota {r["score"]})</small>'
+                     f'<p>{html.escape(text)}</p>{btn}</div>')
+    ids = " ".join(str(r["id"]) for r in rows)
+    page = ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'><title>Fila</title>"
+            "<style>body{font-family:sans-serif;max-width:720px;margin:20px auto;padding:0 12px}.c{border:1px solid #ccc;border-radius:8px;padding:12px;margin:10px 0}"
+            ".b{display:inline-block;background:#128c7e;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;border:0;cursor:pointer;font-size:14px}</style>"
+            f"<h2>{len(rows)} mensagens para enviar hoje</h2>" + "".join(cards) +
+            f"<p>Quando terminar, rode: <code>python -m leadbot dm-done {ids}</code></p>")
+    open(path, "w", encoding="utf-8").write(page)
+    print(f"{len(rows)} mensagens prontas em {path} (abra no navegador)")
 
 
 def dm_done(con, ids):

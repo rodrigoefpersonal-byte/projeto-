@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS leads (
   phone TEXT, email TEXT, website TEXT, instagram TEXT, context TEXT,
   score INTEGER, reason TEXT, message TEXT,
   status TEXT NOT NULL DEFAULT 'new',
+  queue_channel TEXT,
   contacted_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

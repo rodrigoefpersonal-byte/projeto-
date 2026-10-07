@@ -4,6 +4,8 @@ Todo dia o robô: **acha negócios** (Google Places) → **qualifica com IA** (C
 **manda mensagem personalizada** (WhatsApp oficial / e-mail) → **responde as respostas**
 e te avisa no WhatsApp quando aparece um lead quente.
 
+> **Começando do zero e grátis?** Siga o `GUIA.md`: modo em que o robô prepara tudo e você só clica em enviar.
+
 ## Instalar
 ```bash
 pip install -r requirements.txt
@@ -11,7 +13,7 @@ cp config.example.yaml config.yaml   # edite nichos, cidades, oferta
 cp .env.example .env                 # coloque as chaves
 python -m leadbot run                # roda o ciclo completo uma vez
 python -m leadbot stats              # funil de leads
-python -m leadbot dm                 # gera a fila de DMs do Instagram
+python -m leadbot dm                 # gera a página fila.html (botões de envio)
 python -m leadbot serve              # sobe o webhook de respostas (porta 8000)
 ```
 Automático todo dia: `0 9 * * * cd /caminho && python -m leadbot run` (cron), ou um nó
@@ -30,7 +32,7 @@ Em `config.yaml` você edita os nichos e as cidades. Tudo em português; só env
 
 ## Instagram (fila semiautomática)
 A Meta não permite DM automático para quem nunca falou com você (conta é banida). Então o robô
-acha o @ do negócio, escreve a DM personalizada e gera `dm_queue.csv` com o link `ig.me/m/@perfil`.
+acha o @ do negócio, escreve a DM personalizada e gera a página `fila.html` com os botões.
 Você abre, cola e envia (~1 min por DM). Depois: `python -m leadbot dm-done 12 15 18` marca como enviado.
 Quando o cliente responde por Instagram, a conversa é sua; no WhatsApp a IA continua atendendo.
 
