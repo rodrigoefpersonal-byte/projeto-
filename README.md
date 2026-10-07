@@ -24,9 +24,9 @@ Automático todo dia: `0 9 * * * cd /caminho && python -m leadbot run` (cron), o
 | `GOOGLE_PLACES_API_KEY` | Google Cloud → ative "Places API (New)" |
 | `WA_*` | Meta for Developers → WhatsApp Cloud API. Aponte o webhook para `https://SEU-DOMINIO/webhook` |
 
-## Toda a América, 3 idiomas
-Em `config.yaml` você lista países/cidades (`targets`) e os termos de busca por idioma (pt/es/en).
-A IA escreve cada mensagem no idioma do país, e só envia em horário comercial **local** do lead.
+## Foco: Brasil
+Em `config.yaml` você edita os nichos e as cidades. Tudo em português; só envia seg-sáb, 9h-18h (Brasília).
+(O código ainda aceita outros países/idiomas se um dia você quiser: basta adicionar em `targets`.)
 
 ## Instagram (fila semiautomática)
 A Meta não permite DM automático para quem nunca falou com você (conta é banida). Então o robô
@@ -34,8 +34,8 @@ acha o @ do negócio, escreve a DM personalizada e gera `dm_queue.csv` com o lin
 Você abre, cola e envia (~1 min por DM). Depois: `python -m leadbot dm-done 12 15 18` marca como enviado.
 Quando o cliente responde por Instagram, a conversa é sua; no WhatsApp a IA continua atendendo.
 
-## Templates do WhatsApp (precisam de aprovação da Meta, 1x por idioma)
-Crie `primeiro_contato_video_pt` (pt_BR), `_es` (es) e `_en` (en_US), categoria Marketing. Exemplo pt:
+## Template do WhatsApp (aprovação da Meta, 1x)
+Crie `primeiro_contato_video_pt` (pt_BR), categoria Marketing:
 > Olá, {{1}}! {{2}} Sou editor de vídeo e posso te mandar um vídeo de teste grátis. Para não receber mais mensagens, responda SAIR.
 
 ## Regras de segurança embutidas

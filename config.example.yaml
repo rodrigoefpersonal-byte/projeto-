@@ -6,19 +6,15 @@ portfolio_url: "https://seu-portfolio.com"
 seller_name: "Rodrigo"
 
 search:
-  niches:                       # termos de busca por idioma
-    pt: ["clínica de estética", "dentista", "academia", "restaurante", "imobiliária", "coach"]
-    es: ["clínica estética", "dentista", "gimnasio", "restaurante", "inmobiliaria", "coach"]
-    en: ["med spa", "dentist", "gym", "restaurant", "real estate agency", "business coach"]
-  # país, idioma, DDI do telefone, fuso (para só enviar em horário comercial LOCAL) e cidades
+  niches:
+    pt: ["clínica de estética", "dentista", "academia", "restaurante", "imobiliária", "coach", "loja de roupas", "barbearia"]
   targets:
-    - {country: BR, lang: pt, cc: "55", tz: America/Sao_Paulo,    cities: ["São Paulo", "Belo Horizonte", "Curitiba"]}
-    - {country: MX, lang: es, cc: "52", tz: America/Mexico_City,  cities: ["Ciudad de México", "Guadalajara", "Monterrey"]}
-    - {country: CO, lang: es, cc: "57", tz: America/Bogota,       cities: ["Bogotá", "Medellín"]}
-    - {country: AR, lang: es, cc: "54", tz: America/Argentina/Buenos_Aires, cities: ["Buenos Aires", "Córdoba"]}
-    - {country: CL, lang: es, cc: "56", tz: America/Santiago,     cities: ["Santiago"]}
-    - {country: PA, lang: es, cc: "507", tz: America/Panama,      cities: ["Ciudad de Panamá"]}
-    - {country: US, lang: en, cc: "1",  tz: America/New_York,     cities: ["Miami, FL", "Houston, TX", "Los Angeles, CA"]}
+    - country: BR
+      lang: pt
+      cc: "55"
+      tz: America/Sao_Paulo
+      cities: ["São Paulo, SP", "Rio de Janeiro, RJ", "Belo Horizonte, MG", "Curitiba, PR",
+               "Porto Alegre, RS", "Brasília, DF", "Salvador, BA", "Fortaleza, CE", "Goiânia, GO"]
   min_rating_count: 10
   max_results_per_query: 40
 
@@ -30,9 +26,7 @@ send:
   channel_order: ["whatsapp", "email", "instagram"]   # tenta nessa ordem; instagram = fila manual
   daily_limit: 40               # comece baixo e suba aos poucos (aquecimento)
   delay_seconds: [45, 120]      # intervalo aleatório entre envios
-  hours: [9, 18]                # horário comercial LOCAL de cada país (seg-sáb)
-  whatsapp_templates:           # um template aprovado na Meta por idioma
-    pt: {name: primeiro_contato_video_pt, code: pt_BR}
-    es: {name: primeiro_contato_video_es, code: es}
-    en: {name: primeiro_contato_video_en, code: en_US}
+  hours: [9, 18]                # horário comercial de Brasília (seg-sáb)
+  whatsapp_templates:
+    pt: {name: primeiro_contato_video_pt, code: pt_BR}   # template aprovado na Meta
   auto_reply: true              # IA responde dúvidas simples; você assume se houver interesse
