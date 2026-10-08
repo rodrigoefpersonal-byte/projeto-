@@ -5,18 +5,23 @@ from datetime import datetime
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
-from . import ai, channels, db, enrich, sources
+import csv
+import re
+
+from . import channels, db, enrich, offline, sources
 from .text import t
 
 
 def find(cfg, con):
     s, new = cfg["search"], 0
+    use_osm = s.get("source", "google") == "osm"
     for tg in s["targets"]:
         for niche in s["niches"][tg["lang"]]:
             for city in tg["cities"]:
                 try:
-                    for p in sources.search_places(niche, city, s["max_results_per_query"],
-                                                   s["min_rating_count"], tg["lang"]):
+                    gen = (sources.search_osm(niche, city, s["max_results_per_query"]) if use_osm else
+                           sources.search_places(niche, city, s["max_results_per_query"], s["min_rating_count"], tg["lang"]))
+                    for p in gen:
                         if db.add_lead(con, country=tg["country"], lang=tg["lang"], tz=tg["tz"],
                                        cc=tg["cc"], **p):
                             new += 1
@@ -31,14 +36,18 @@ def qualify(cfg, con):
         lead = dict(r)
         extra = enrich.enrich(lead["website"])
         lead["email"] = lead["email"] or extra.get("email")
-        lead["instagram"] = extra.get("instagram")
+        lead["instagram"] = lead["instagram"] or extra.get("instagram")
         lead["context"] = (lead["context"] or "") + " | site: " + extra.get("context_site", "")[:800]
         if not (lead["phone"] or lead["email"] or lead["instagram"]):
             con.execute("UPDATE leads SET status='rejected', reason='sem contato' WHERE id=?", (r["id"],))
             continue
         try:
-            res = ai.qualify(cfg, {k: lead[k] for k in ("name", "niche", "city", "country", "context", "instagram")},
-                             lead["lang"])
+            info = {k: lead[k] for k in ("name", "niche", "city", "country", "context", "instagram", "website", "phone")}
+            if cfg["qualify"].get("mode", "ai") == "ai":
+                from . import ai  # só carrega (e exige chave) se o modo IA estiver ligado
+                res = ai.qualify(cfg, info, lead["lang"])
+            else:
+                res = offline.qualify(cfg, info)
         except Exception as e:  # noqa: BLE001 - não derruba o lote por 1 falha
             print("erro IA:", e)
             continue
@@ -143,3 +152,23 @@ def dm_done(con, ids):
 
 def run_all(cfg, con):
     find(cfg, con); qualify(cfg, con); send(cfg, con); dm_queue(cfg, con)
+
+
+def import_csv(cfg, con, path):
+    """Importa leads de uma planilha CSV (colunas: nome, telefone, instagram, nicho, cidade, site)."""
+    tg = cfg["search"]["targets"][0]
+    n = 0
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        sample = f.read(2048); f.seek(0)
+        for row in csv.DictReader(f, delimiter=";" if sample.count(";") > sample.count(",") else ","):
+            row = {k.strip().lower(): (v or "").strip() for k, v in row.items() if k}
+            insta = re.sub(r"[?#].*$", "", row.get("instagram", "")).rstrip("/").split("/")[-1].lstrip("@") or None
+            phone = row.get("telefone") or row.get("whatsapp") or None
+            if not row.get("nome") or not (phone or insta):
+                continue
+            key = "csv:" + (phone or insta or row["nome"])
+            if db.add_lead(con, source_id=key, name=row["nome"], niche=row.get("nicho"), city=row.get("cidade"),
+                           phone=phone, instagram=insta, website=row.get("site") or None, context="",
+                           country=tg["country"], lang=tg["lang"], tz=tg["tz"], cc=tg["cc"]):
+                n += 1
+    print(f"{n} leads importados de {path}")

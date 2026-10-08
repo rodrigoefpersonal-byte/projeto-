@@ -7,6 +7,8 @@ portfolio_url: "https://www.instagram.com/newai_studio"
 seller_name: "Victor"
 
 search:
+  source: osm                 # osm = grátis | google = pago (precisa de chave e cartão)
+  # Dica: busque também na mão e use `python -m leadbot import meus_leads.csv`
   niches:
     pt: ["clínica de estética", "dentista", "academia", "restaurante", "imobiliária", "coach", "loja de roupas", "barbearia"]
   targets:
@@ -20,6 +22,7 @@ search:
   max_results_per_query: 40
 
 qualify:
+  mode: rules                   # rules = grátis (sem IA) | ai = IA da Anthropic (paga)
   min_score: 60                 # 0-100; abaixo disso o lead é descartado
   model: claude-haiku-5-5
 

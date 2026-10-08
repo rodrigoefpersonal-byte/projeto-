@@ -3,13 +3,13 @@ import json
 import os
 import re
 
-import anthropic
 
 _client = None
 
 
 def _ask(model: str, system: str, user: str, max_tokens=600) -> dict:
     global _client
+    import anthropic
     _client = _client or anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     msg = _client.messages.create(
         model=model, max_tokens=max_tokens, system=system,

@@ -28,3 +28,15 @@ def test_dedupe_and_optout(tmp_path):
     assert con.execute("SELECT status FROM leads").fetchone()[0] == "opted_out"
     assert not db.add_lead(con, source_id="c", name="X3", phone="11987654321", cc="55")
     assert db.find_by_phone(con, "5511987654321")["name"] == "X"
+
+
+def test_csv_import_and_free_qualify(tmp_path):
+    import yaml
+    from leadbot import pipeline
+    cfg = yaml.safe_load(open("config.example.yaml", encoding="utf-8"))
+    con = db.connect(tmp_path / "t.db")
+    pipeline.import_csv(cfg, con, "leads_exemplo.csv")
+    pipeline.qualify(cfg, con)
+    rows = {r["name"]: r for r in con.execute("SELECT * FROM leads")}
+    assert rows["Barbearia Fio"]["instagram"] == "barbeariafio"
+    assert rows["Odonto Sorriso"]["status"] == "qualified"

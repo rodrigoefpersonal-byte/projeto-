@@ -1,0 +1,4 @@
+# Só para os modos pagos/avançados (IA, respostas automáticas no WhatsApp)
+anthropic>=0.40
+fastapi>=0.110
+uvicorn>=0.29

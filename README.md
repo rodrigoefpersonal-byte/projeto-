@@ -4,11 +4,12 @@ Todo dia o robô: **acha negócios** (Google Places) → **qualifica com IA** (C
 **manda mensagem personalizada** (WhatsApp oficial / e-mail) → **responde as respostas**
 e te avisa no WhatsApp quando aparece um lead quente.
 
-> **Começando do zero e grátis?** Siga o `GUIA.md`: modo em que o robô prepara tudo e você só clica em enviar.
+> **Começando do zero e grátis?** Siga o `GUIA.md`: modo sem chaves e sem custo; o robô prepara tudo e você só clica em enviar.
+> Os modos com IA, Google e WhatsApp automático (abaixo) são opcionais e pagos.
 
 ## Instalar
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt   # IA/webhook: pip install -r requirements-extra.txt
 cp config.example.yaml config.yaml   # edite nichos, cidades, oferta
 cp .env.example .env                 # coloque as chaves
 python -m leadbot run                # roda o ciclo completo uma vez
