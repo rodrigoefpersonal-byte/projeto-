@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A jornada de uma gota d'água</title>
+<style>
+  @font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 500;
+    font-display: block;
+    src: url('fonts/poppins-latin-500-normal.woff2') format('woff2');
+  }
+  :root { --bg: #062437; --fg: #F4F9F9; --accent: #1FB5AD; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font-family: Poppins, system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding: 16px; }
+  canvas { width: min(100%, calc((100vh - 90px) * 16 / 9)); aspect-ratio: 16 / 9;
+    display: block; border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+  body.capture { padding: 0; gap: 0; }
+  body.capture canvas { width: 1920px; border-radius: 0; box-shadow: none; }
+  body.capture .controls { display: none; }
+  .controls { display: flex; align-items: center; gap: 12px; width: min(100%, 960px); }
+  button { background: var(--accent); color: #0B3C5D; border: 0; border-radius: 999px;
+    padding: 8px 18px; font: inherit; font-weight: 500; cursor: pointer; min-width: 92px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  output { font-variant-numeric: tabular-nums; min-width: 92px; text-align: right; opacity: .8; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<div class="controls">
+  <button id="play" type="button">Pausar</button>
+  <input id="scrub" type="range" min="0" max="239" step="1" value="0" aria-label="Quadro">
+  <output id="time">0.00 s</output>
+</div>
+<script src="animation.js"></script>
+<script>
+  const { render, FPS, TOTAL_FRAMES, DURATION } = window.GOTA;
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const playBtn = document.getElementById('play');
+  const scrub = document.getElementById('scrub');
+  const timeOut = document.getElementById('time');
+
+  // Usado pelo exportador (render/render-frames.cjs)
+  window.renderFrame = (f) => render(ctx, f / FPS);
+  window.fontsReady = document.fonts.load('500 64px Poppins').then(() => document.fonts.ready);
+
+  if (new URLSearchParams(location.search).has('capture')) {
+    document.body.classList.add('capture');
+  } else {
+    let playing = true;
+    let start = performance.now();
+    let pausedAt = 0;
+    const show = (t) => {
+      render(ctx, t);
+      const f = Math.floor(t * FPS) % TOTAL_FRAMES;
+      scrub.value = f;
+      timeOut.textContent = t.toFixed(2) + ' s';
+    };
+    const tick = (now) => {
+      if (playing) show(((now - start) / 1000) % DURATION);
+      requestAnimationFrame(tick);
+    };
+    playBtn.addEventListener('click', () => {
+      playing = !playing;
+      if (playing) start = performance.now() - pausedAt * 1000;
+      else pausedAt = ((performance.now() - start) / 1000) % DURATION;
+      playBtn.textContent = playing ? 'Pausar' : 'Tocar';
+    });
+    scrub.addEventListener('input', () => {
+      const t = scrub.value / FPS;
+      pausedAt = t;
+      start = performance.now() - t * 1000;
+      if (!playing) show(t);
+    });
+    window.fontsReady.then(() => requestAnimationFrame(tick));
+  }
+</script>
+</body>
+</html>
