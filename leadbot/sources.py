@@ -1,5 +1,6 @@
 """Busca de leads via Google Places API (oficial)."""
 import os
+import time
 
 import httpx
 
@@ -45,7 +46,9 @@ def search_places(niche: str, city: str, max_results: int = 40, min_ratings: int
         body["pageToken"] = token
 
 
-OSM_URL = "https://overpass-api.de/api/interpreter"
+OSM_URLS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
+OSM_HEADERS = {"User-Agent": "leadbot/1.0 (prospeccao local; contato: github.com/rodrigoefpersonal-byte)",
+               "Accept": "*/*"}
 OSM_TAGS = {  # palavra do nicho -> filtro do OpenStreetMap
     "dentista": '["amenity"="dentist"]', "estética": '["shop"="beauty"]', "academia": '["leisure"="fitness_centre"]',
     "restaurante": '["amenity"="restaurant"]', "imobili": '["office"="estate_agent"]',
@@ -61,10 +64,20 @@ def search_osm(niche: str, city: str, max_results: int = 40):
     name = city.split(",")[0].strip()
     q = (f'[out:json][timeout:60];area["name"="{name}"]["boundary"="administrative"]->.a;'
          f'nwr(area.a){flt}["name"];out center tags 400;')
-    r = httpx.post(OSM_URL, data={"data": q}, timeout=90)
-    r.raise_for_status()
+    data, err = None, None
+    for url in OSM_URLS:  # tenta o servidor principal e depois o reserva
+        try:
+            r = httpx.post(url, data={"data": q}, headers=OSM_HEADERS, timeout=90)
+            r.raise_for_status()
+            data = r.json()
+            break
+        except (httpx.HTTPError, ValueError) as e:
+            err = e
+    time.sleep(2)  # educação com o servidor gratuito
+    if data is None:
+        raise err
     n = 0
-    for el in r.json().get("elements", []):
+    for el in data.get("elements", []):
         t = el.get("tags", {})
         phone = t.get("phone") or t.get("contact:phone") or t.get("contact:whatsapp")
         insta = (t.get("contact:instagram") or t.get("instagram") or "").rstrip("/").split("/")[-1].lstrip("@")
