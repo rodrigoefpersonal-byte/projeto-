@@ -193,9 +193,21 @@
     return [CX + Math.cos(a) * r * 1.12, CY + Math.sin(a) * r * 0.86];
   }
 
-  // cada gota vai para a nuvem mais próxima no início da transição
+  // Tempo efetivo da órbita: desacelera até parar entre 3,4 e 4,6 s, para que
+  // as gotas saiam em arco rumo às nuvens sem fazer laços.
+  // Usa a integral de (1 - inOut) em forma fechada.
+  const SLOW_T0 = 3.4;
+  const SLOW_D = 1.2;
+  function orbitTime(t) {
+    if (t <= SLOW_T0) return t;
+    const x = seg(t, SLOW_T0, SLOW_T0 + SLOW_D);
+    const F = x <= 0.5 ? Math.pow(x, 4) : x + Math.pow(2 - 2 * x, 4) / 16 - 0.5;
+    return SLOW_T0 + SLOW_D * (x - F);
+  }
+
+  // cada gota vai para a nuvem mais próxima de onde a órbita para
   const CLOUD_OF = (() => {
-    const xs = [0, 1, 2].map((i) => ({ i, x: orbitPos(i, 3.6)[0] }));
+    const xs = [0, 1, 2].map((i) => ({ i, x: orbitPos(i, orbitTime(10))[0] }));
     xs.sort((a, b) => a.x - b.x);
     const map = [];
     xs.forEach((o, k) => (map[o.i] = k));
@@ -204,9 +216,9 @@
 
   // posição das gotas/nuvens 2–8 s (antes da convergência final)
   function smallPos(i, t) {
-    const p = orbitPos(i, t);
+    const p = orbitPos(i, orbitTime(t));
     const c = CLOUDS[CLOUD_OF[i]];
-    const k = inOut(seg(t, 3.6, 4.9));
+    const k = inOut(seg(t, 3.5, 4.9));
     const bob = Math.sin(t * 1.6 + i * 2.1) * 6 * seg(t, 4.6, 5.4);
     return [lerp(p[0], c.x, k), lerp(p[1], c.y, k) + bob];
   }
@@ -262,7 +274,7 @@
 
   // fator de curvatura/convergência do rio (8–10 s)
   function riverCurl(t) {
-    return { b: inOut(seg(t, 8.0, 8.7)), c: inOut(seg(t, 8.25, 9.2)) };
+    return { b: inOut(seg(t, 7.95, 8.85)), c: inOut(seg(t, 8.3, 9.25)) };
   }
 
   // superfície do rio (camada da frente) num x, ainda reto — usada pela chuva
