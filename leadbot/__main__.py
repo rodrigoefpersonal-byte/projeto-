@@ -13,6 +13,9 @@ def main():
     ap.add_argument("--config", default="config.yaml")
     ap.add_argument("args", nargs="*", help="ids (dm-done) ou arquivo.csv (import)")
     a = ap.parse_args()
+    import os
+    if not os.path.exists(a.config) and a.config == "config.yaml":
+        a.config = "config.example.yaml"  # sem config.yaml, usa o modelo (já vem no modo grátis)
     cfg = yaml.safe_load(open(a.config, encoding="utf-8"))
     con = db.connect()
     if a.cmd == "serve":
