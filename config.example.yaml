@@ -7,7 +7,9 @@ portfolio_url: "https://www.instagram.com/newai_studio"
 seller_name: "Victor"
 
 search:
-  source: osm                 # osm = grátis | google = pago (precisa de chave e cartão)
+  source: google              # google = completo (chave + cartão, com tetos de gasto abaixo) | osm = grátis, poucos resultados
+  google_daily_cap: 10        # máx. de chamadas pagas por dia (cada uma traz até 20 negócios)
+  google_monthly_cap: 800     # máx. por mês (o uso gratuito do Google para esse tipo de busca é ~1000/mês)
   # Dica: busque também na mão e use `python -m leadbot import meus_leads.csv`
   niches:
     pt: ["clínica de estética", "dentista", "academia", "restaurante", "imobiliária", "coach", "loja de roupas", "barbearia"]
@@ -19,7 +21,7 @@ search:
       cities: ["São Paulo, SP", "Rio de Janeiro, RJ", "Belo Horizonte, MG", "Curitiba, PR",
                "Porto Alegre, RS", "Brasília, DF", "Salvador, BA", "Fortaleza, CE", "Goiânia, GO"]
   min_rating_count: 10
-  max_results_per_query: 40
+  max_results_per_query: 60   # o Google entrega no máx. 60 por busca (3 chamadas)
 
 qualify:
   mode: rules                   # rules = grátis (sem IA) | ai = IA da Anthropic (paga)

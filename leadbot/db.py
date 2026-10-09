@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS messages (
   lead_id INTEGER, direction TEXT, channel TEXT, body TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS api_usage (period TEXT PRIMARY KEY, calls INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS done_queries (q TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS optout (contact TEXT PRIMARY KEY);
 """
 
@@ -94,4 +96,23 @@ def log_message(con, lead_id, direction, channel, body):
         "INSERT INTO messages (lead_id, direction, channel, body) VALUES (?,?,?,?)",
         (lead_id, direction, channel, body),
     )
+    con.commit()
+
+
+class BudgetExceeded(Exception):
+    pass
+
+
+def spend_api_call(con, daily_cap: int, monthly_cap: int):
+    """Conta 1 chamada paga ao Google. Estoura antes de passar do teto diário/mensal."""
+    from datetime import date
+    today = date.today()
+    d, m = f"d:{today.isoformat()}", f"m:{today:%Y-%m}"
+    used = {r["period"]: r["calls"] for r in con.execute("SELECT * FROM api_usage WHERE period IN (?,?)", (d, m))}
+    if used.get(d, 0) >= daily_cap:
+        raise BudgetExceeded(f"limite diário de {daily_cap} buscas ao Google atingido (volte amanhã)")
+    if used.get(m, 0) >= monthly_cap:
+        raise BudgetExceeded(f"limite mensal de {monthly_cap} buscas ao Google atingido")
+    for k in (d, m):
+        con.execute("INSERT INTO api_usage VALUES (?,1) ON CONFLICT(period) DO UPDATE SET calls=calls+1", (k,))
     con.commit()

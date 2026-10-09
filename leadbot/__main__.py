@@ -8,6 +8,7 @@ from . import db, pipeline
 
 def main():
     load_dotenv()
+    load_dotenv("chaves.env")  # nome alternativo, mais fácil de criar no Windows
     ap = argparse.ArgumentParser(prog="leadbot")
     ap.add_argument("cmd", choices=["find", "qualify", "send", "run", "serve", "stats", "dm", "dm-done", "import"])
     ap.add_argument("--config", default="config.yaml")

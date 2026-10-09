@@ -29,3 +29,8 @@ Não precisa de Anthropic, Google, Meta nem servidor. Custo: R$ 0.
   e `ANTHROPIC_API_KEY` no `.env` (pré-pago, a partir de ~US$ 5).
 - Busca do Google (mais completa): `search: source: google` + `GOOGLE_PLACES_API_KEY`.
 - Envio automático e respostas por IA no WhatsApp: API oficial da Meta (ver README).
+
+## Modo Google (busca completa) com teto de gasto
+1. Crie a chave do Google (veja as instruções no chat) e ponha em `chaves.env`: `GOOGLE_PLACES_API_KEY=...`
+2. O `config.example.yaml` já vem com `source: google` e tetos: 10 chamadas/dia e 800/mês.
+3. Cada combinação nicho+cidade é buscada uma vez só; o robô vai avançando pela lista a cada dia.

@@ -15,16 +15,25 @@ from .text import t
 def find(cfg, con):
     s, new = cfg["search"], 0
     use_osm = s.get("source", "google") == "osm"
+    d_cap, m_cap = s.get("google_daily_cap", 10), s.get("google_monthly_cap", 800)
+    spend = lambda: db.spend_api_call(con, d_cap, m_cap)  # noqa: E731
     for tg in s["targets"]:
         for niche in s["niches"][tg["lang"]]:
             for city in tg["cities"]:
+                q = f"{use_osm}:{niche}|{city}"
+                if con.execute("SELECT 1 FROM done_queries WHERE q=?", (q,)).fetchone():
+                    continue  # essa combinação já foi buscada; não gasta de novo
                 try:
                     gen = (sources.search_osm(niche, city, s["max_results_per_query"]) if use_osm else
-                           sources.search_places(niche, city, s["max_results_per_query"], s["min_rating_count"], tg["lang"]))
+                           sources.search_places(niche, city, s["max_results_per_query"], s["min_rating_count"],
+                                                tg["lang"], before_call=spend))
                     for p in gen:
-                        if db.add_lead(con, country=tg["country"], lang=tg["lang"], tz=tg["tz"],
-                                       cc=tg["cc"], **p):
+                        if db.add_lead(con, country=tg["country"], lang=tg["lang"], tz=tg["tz"], cc=tg["cc"], **p):
                             new += 1
+                    con.execute("INSERT OR IGNORE INTO done_queries VALUES (?)", (q,)); con.commit()
+                except db.BudgetExceeded as e:
+                    print(f"{new} leads novos. Parei: {e}")
+                    return
                 except Exception as e:  # noqa: BLE001 - uma cidade com erro não para o resto
                     print(f"erro buscando {niche}/{city}: {e}")
     print(f"{new} leads novos")

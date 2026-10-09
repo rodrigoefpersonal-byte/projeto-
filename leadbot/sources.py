@@ -14,7 +14,8 @@ FIELDS = ",".join(
 ) + ",nextPageToken"
 
 
-def search_places(niche: str, city: str, max_results: int = 40, min_ratings: int = 0, lang: str = "pt"):
+def search_places(niche: str, city: str, max_results: int = 40, min_ratings: int = 0, lang: str = "pt",
+                  before_call=None):
     headers = {
         "X-Goog-Api-Key": os.environ["GOOGLE_PLACES_API_KEY"],
         "X-Goog-FieldMask": FIELDS,
@@ -22,6 +23,8 @@ def search_places(niche: str, city: str, max_results: int = 40, min_ratings: int
     body = {"textQuery": f"{niche} {city}", "languageCode": lang, "pageSize": 20}
     found = 0
     while found < max_results:
+        if before_call:
+            before_call()  # contabiliza (e limita) o gasto com a API paga
         r = httpx.post(URL, json=body, headers=headers, timeout=30)
         r.raise_for_status()
         data = r.json()
