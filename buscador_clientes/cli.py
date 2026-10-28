@@ -62,6 +62,8 @@ def criar_parser():
                    help="auto = Google se houver chave, senão OpenStreetMap (padrão)")
     p.add_argument("--chave-google", help="Chave da Places API (ou use chave_google.txt / GOOGLE_MAPS_API_KEY)")
     p.add_argument("--max-por-busca", type=int, default=60, help="Máximo de resultados do Google por nicho (até 60)")
+    p.add_argument("--limite-mensal", type=int, default=google_places.LIMITE_MENSAL_PADRAO,
+                   help="Máximo de consultas ao Google por mês, para ficar na cota grátis (padrão: 900)")
     p.add_argument("--min-pontuacao", type=int, default=0, help="Só exporta leads com pontuação >= este valor")
     p.add_argument("--sem-analise-site", action="store_true", help="Não visita os sites (mais rápido, menos dados)")
     p.add_argument("--mensagem", help="Arquivo .txt com a mensagem do WhatsApp (use {nome} para o nome do negócio)")
@@ -84,7 +86,7 @@ def salvar_historico(pasta, leads):
             f.write("|".join(lead.chave()) + "\n")
 
 
-def coletar(args, cidades, nichos, chave):
+def coletar(args, cidades, nichos, chave, pasta):
     usar_google = args.fonte in ("google", "ambas") or (args.fonte == "auto" and chave)
     usar_osm = args.fonte in ("osm", "ambas") or (args.fonte == "auto" and not chave)
     if usar_google and not chave:
@@ -92,20 +94,28 @@ def coletar(args, cidades, nichos, chave):
     if args.fonte == "auto" and not chave:
         print("Sem chave do Google: usando o OpenStreetMap (grátis). Para mais resultados, veja o README.\n")
 
+    contador = google_places.ContadorUso(pasta / "uso_google.json", args.limite_mensal)
     leads = []
     for cidade in cidades:
         print(f"Procurando em {cidade}...")
         if usar_google:
             for n in nichos:
                 try:
-                    leads += google_places.buscar(chave, NICHOS[n]["busca"], cidade, n, args.max_por_busca)
+                    leads += google_places.buscar(chave, NICHOS[n]["busca"], cidade, n, args.max_por_busca,
+                                                  contador=contador)
                 except ErroHTTP as e:
                     print(f"  Erro no Google Maps ({n}): {e}")
+                except google_places.LimiteMensalAtingido as e:
+                    print(f"  {e}")
+                    usar_google = False
+                    break
         if usar_osm:
             try:
                 leads += openstreetmap.buscar(cidade, nichos)
             except ErroHTTP as e:
                 print(f"  Erro no OpenStreetMap: {e}")
+    if chave and args.fonte != "osm":
+        print(f"Consultas ao Google neste mês: {contador.usados} de {contador.limite} (cota grátis).\n")
     return leads
 
 
@@ -120,15 +130,15 @@ def main(argv=None):
     nichos = resolver_nichos((args.nichos or "").split(",") if args.nichos else [])
     chave = ler_chave_google(args.chave_google)
 
-    leads = coletar(args, cidades, nichos, chave)
+    pasta = Path(args.saida)
+    pasta.mkdir(parents=True, exist_ok=True)
+    leads = coletar(args, cidades, nichos, chave, pasta)
 
     unicos = {}
     for lead in leads:
         unicos.setdefault(lead.chave(), lead)
     leads = [l for l in unicos.values() if l.nome]
 
-    pasta = Path(args.saida)
-    pasta.mkdir(parents=True, exist_ok=True)
     if not args.incluir_repetidos:
         historico = carregar_historico(pasta)
         antes = len(leads)

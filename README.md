@@ -24,7 +24,27 @@ assim você não manda mensagem duas vezes para o mesmo lugar.
 
 ---
 
-## 1. Instalar (uma vez só)
+## Jeito mais fácil: pelo navegador, sem instalar nada (Google Colab)
+
+Funciona no computador **e no celular**, só precisa de uma conta Google.
+
+1. Abra o caderno: <https://colab.research.google.com/github/rodrigoefpersonal-byte/projeto-/blob/main/Buscador_de_Clientes.ipynb>
+   (na primeira vez o Colab pede para autorizar o GitHub, porque o repositório é privado; marque
+   a opção de incluir repositórios privados). Outra opção: baixe o arquivo `Buscador_de_Clientes.ipynb`
+   e, no Colab, use **Arquivo → Fazer upload de notebook**.
+2. Clique em **Arquivo → Salvar uma cópia no Drive**. A partir daí abra sempre essa cópia
+   (ela fica em *Meu Drive → Colab Notebooks*).
+3. *(Uma vez só)* Clique na chave 🔑 na barra da esquerda → **Adicionar novo secret** →
+   nome `GOOGLE_MAPS_API_KEY` e cole sua chave do Google (seção 3) → ative o acesso do notebook.
+4. Clique no ▶ do **Passo 1**, preencha cidade e nichos no **Passo 2** e clique no ▶.
+   A lista aparece na tela, a planilha é baixada e tudo fica salvo na pasta
+   *Meu Drive → Buscador de Clientes* (junto com o histórico e a trava de gastos).
+
+---
+
+## Jeito alternativo: no seu computador
+
+### 1. Instalar (uma vez só)
 
 1. Instale o **Python 3.10 ou mais novo**: <https://www.python.org/downloads/>
    (no Windows, marque a opção **"Add Python to PATH"** na instalação).
@@ -35,7 +55,7 @@ assim você não manda mensagem duas vezes para o mesmo lugar.
    ```
    Sem isso o programa funciona do mesmo jeito; só não gera o `.xlsx`, apenas o `.html` e o `.csv`.
 
-## 2. Usar
+### 2. Usar
 
 **Windows:** dê dois cliques em `iniciar_windows.bat`. O programa vai perguntar a cidade e os nichos.
 
@@ -88,21 +108,38 @@ Para usar as duas juntas: `--fonte ambas`.
 > Raspar o site é contra os termos de uso do Google e costuma resultar em bloqueio; a API é o
 > caminho permitido e estável.
 
-### Chave do Google (recomendado)
+### Chave do Google (recomendado) — sem gastar nada
 
-1. Entre em <https://console.cloud.google.com/> com sua conta Google e crie um projeto.
-2. Ative o faturamento (cartão) — é exigido pelo Google mesmo para usar a cota gratuita.
-3. Em **APIs e serviços → Biblioteca**, ative a **"Places API (New)"**.
-4. Em **APIs e serviços → Credenciais → Criar credenciais → Chave de API**. Copie a chave.
-5. Crie um arquivo chamado `chave_google.txt` nesta pasta e cole a chave dentro (só a chave).
+Para usar o Google Maps é preciso cadastrar um cartão no Google Cloud, mesmo usando só a parte
+grátis. Siga nesta ordem:
 
-Pronto: a partir daí o programa usa o Google Maps sozinho.
+1. **Cadastrar o cartão (teste gratuito):** <https://console.cloud.google.com/freetrial>
+   Enquanto você estiver no teste gratuito, o Google **não cobra nada** a não ser que você clique
+   em **"Ativar conta completa"** (ou *Upgrade*). **Não clique nisso.**
+2. **Ativar a API de lugares:** <https://console.cloud.google.com/apis/library/places.googleapis.com>
+   → botão **Ativar** (é a "Places API (New)").
+3. **Criar a chave:** <https://console.cloud.google.com/apis/credentials> → **Criar credenciais →
+   Chave de API**. Depois clique na chave criada → **Restrições de API → Restringir chave →**
+   marque só **Places API (New)** → Salvar. Assim, se alguém pegar sua chave, não consegue usar
+   em outros serviços.
+4. **Colocar a chave no programa:** no Colab, no secret `GOOGLE_MAPS_API_KEY` (veja acima); no
+   computador, num arquivo `chave_google.txt` nesta pasta. **Nunca publique a chave em lugar nenhum.**
+5. **Alerta de gastos (recomendado):** <https://console.cloud.google.com/billing/budgets> →
+   **Criar orçamento** de R$ 1 com alerta por e-mail. Isso não bloqueia nada, só avisa.
+6. **Limite no próprio Google (opcional):** <https://console.cloud.google.com/google/maps-apis/quotas>
+   → escolha **Places API (New)** → edite o limite de **SearchTextRequest** (por dia, se aparecer)
+   para um número pequeno, como 30.
 
-**Sobre custos:** cada nicho em cada cidade faz até 3 consultas (até 60 negócios). Os campos de
-telefone e site ficam numa faixa de preço mais alta da API. Confira a cota gratuita e os preços
-atuais em <https://developers.google.com/maps/billing-and-pricing/pricing> e, para não ter
-surpresa, defina um **limite de uso diário** em *APIs e serviços → Places API (New) → Cotas* e um
-**alerta de orçamento** em *Faturamento → Orçamentos e alertas*.
+**Como o programa garante que você não gaste:** o Google dá **1.000 consultas grátis por mês**
+para esse tipo de busca. O programa conta cada consulta e **para sozinho em 900 por mês** (dá para
+mudar com `--limite-mensal`), voltando a buscar no mês seguinte. Cada consulta traz até 20
+negócios, então são até ~18.000 negócios grátis por mês. Cada nicho em cada cidade usa no máximo
+3 consultas.
+
+> ⚠️ A contagem fica salva na pasta de resultados. Se você usar o programa no computador **e** no
+> Colab, cada um conta separado; nesse caso use `--limite-mensal 450` em cada um, ou configure o
+> limite do item 6. Os preços do Google podem mudar: confira em
+> <https://developers.google.com/maps/billing-and-pricing/pricing>.
 
 ## 4. Personalizar a mensagem do WhatsApp
 
@@ -139,7 +176,8 @@ A coluna "Por que é um bom lead" explica a nota de cada um.
 
 ## Para desenvolvedores
 
-Sem dependências obrigatórias (só a biblioteca padrão do Python). Testes:
+Sem dependências obrigatórias (só a biblioteca padrão do Python). Depois de mudar algo em
+`buscador_clientes/`, regenere o caderno do Colab com `python ferramentas/gerar_notebook.py`. Testes:
 
 ```
 pip install pytest openpyxl

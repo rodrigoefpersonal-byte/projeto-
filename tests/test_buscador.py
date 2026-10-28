@@ -110,3 +110,33 @@ def test_programa_completo(tmp_path):
     assert linhas[0]["Instagram"] == "https://www.instagram.com/academiaforte"
     assert linhas[0]["Chamar no WhatsApp"].startswith("https://wa.me/5519998765432")
     assert list(tmp_path.glob("clientes_*.html"))
+
+
+def test_trava_de_gastos_para_no_limite(tmp_path):
+    pagina = {"places": [{"displayName": {"text": "Loja"}}], "nextPageToken": "t"}
+    contador = google_places.ContadorUso(tmp_path / "uso.json", limite=2)
+    with mock.patch.object(google_places, "post_json", return_value=pagina) as post, \
+         mock.patch.object(google_places.time, "sleep"):
+        try:
+            google_places.buscar("X", "loja", "Recife", "loja", log=lambda *_: None, contador=contador)
+            assert False, "devia ter parado no limite"
+        except google_places.LimiteMensalAtingido:
+            pass
+    assert post.call_count == 2
+    # O limite vale para o mês todo, mesmo fechando e abrindo o programa de novo.
+    assert google_places.ContadorUso(tmp_path / "uso.json", limite=2).usados == 2
+
+
+def test_programa_respeita_limite_mensal(tmp_path, capsys):
+    with mock.patch.object(google_places, "post_json") as post:
+        cli.main(["--cidade", "Recife, PE", "--chave-google", "X", "--limite-mensal", "0", "--saida", str(tmp_path)])
+    post.assert_not_called()
+    assert "Limite de 0 consultas" in capsys.readouterr().out
+
+
+def test_notebook_do_colab_esta_atualizado():
+    from ferramentas import gerar_notebook
+
+    assert gerar_notebook.DESTINO.read_text(encoding="utf-8") == gerar_notebook.gerar(), (
+        "Rode: python ferramentas/gerar_notebook.py"
+    )
