@@ -1,0 +1,340 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#07060F;font-family:Inter,sans-serif}
+#stage{position:absolute;left:0;top:0;width:1080px;height:1920px;overflow:hidden;background:radial-gradient(120% 80% at 50% 35%,#23164A 0%,#110C26 55%,#07060F 100%)}
+.grid{position:absolute;left:-60px;top:-60px;width:1200px;height:2040px;background-image:linear-gradient(rgba(255,255,255,.05) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.05) 2px,transparent 2px);background-size:60px 60px}
+.abs{position:absolute;left:0;top:0}
+.scene{position:absolute;left:0;top:0;width:1080px;height:1920px;display:none}
+.line{position:absolute;left:0;width:1080px;text-align:center;color:#fff;font-weight:800;line-height:1;white-space:nowrap;letter-spacing:-2px;transform-origin:50% 50%;text-shadow:0 10px 0 rgba(0,0,0,.35)}
+.g{background:linear-gradient(90deg,#00E5FF,#7B5CFF 55%,#FF2E93);-webkit-background-clip:text;background-clip:text;color:transparent;display:inline-block;padding:0 6px}
+.gwrap{text-shadow:none;filter:drop-shadow(0 10px 0 rgba(0,0,0,.35))}
+.p3{transform-style:preserve-3d}
+.face{position:absolute;backface-visibility:hidden}
+.pill{display:inline-block;padding:14px 34px;border-radius:999px;border:4px solid #7B5CFF;background:rgba(255,255,255,.07);color:#fff;font-weight:700;font-size:34px;letter-spacing:6px;text-shadow:none}
+.cf{width:380px;height:380px;border-radius:34px;border:6px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center}
+.cf svg{width:210px;height:210px}
+.bar-front{background:linear-gradient(180deg,#7B5CFF,#00B8D9)}
+.bar-back{background:#3a2a8a}
+.bar-right{background:linear-gradient(180deg,#4a35b5,#06768a)}
+.bar-left{background:linear-gradient(180deg,#4a35b5,#06768a)}
+.bar-top{background:#B9A8FF}
+.bar-bottom{background:#1a1240}
+.hot.bar-front{background:linear-gradient(180deg,#FF2E93,#7B5CFF)}
+.hot.bar-right,.hot.bar-left{background:linear-gradient(180deg,#b81e68,#4a35b5)}
+.hot.bar-top{background:#FF8CC4}
+.scr-front{background:#0E0B1F;border:12px solid #2E2560;border-radius:26px;overflow:hidden}
+.scr-back{background:#2E2560;border-radius:26px}
+.scr-left,.scr-right,.scr-top,.scr-bottom{background:#221a4a}
+.clip{position:absolute;top:22px;height:66px;border-radius:14px;border:3px solid rgba(255,255,255,.35)}
+</style></head>
+<body>
+<div id="stage">
+  <div class="grid" id="grid"></div>
+  <div id="glow1" class="abs" style="left:300px;top:-200px;width:1100px;height:1100px;border-radius:50%;background:radial-gradient(circle,rgba(123,92,255,.42),rgba(123,92,255,0) 68%)"></div>
+  <div id="glow2" class="abs" style="left:-400px;top:1100px;width:1100px;height:1100px;border-radius:50%;background:radial-gradient(circle,rgba(255,46,147,.25),rgba(255,46,147,0) 68%)"></div>
+
+  <!-- CENA 1: gancho -->
+  <div class="scene" id="s1">
+    <div class="line" id="s1a" style="top:330px;font-size:96px">SEU NEGÓCIO</div>
+    <div class="line" id="s1b" style="top:446px;font-size:96px">PRECISA</div>
+    <div class="line gwrap" id="s1c" style="top:570px;font-size:150px"><span class="g">APARECER?</span></div>
+    <div id="cubeShadow" class="abs" style="left:270px;top:1420px;width:540px;height:90px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.65),rgba(0,0,0,0))"></div>
+    <div id="cubeWrap" class="abs" style="left:350px;top:930px;width:380px;height:380px;perspective:1400px">
+      <div id="cube" class="p3" style="position:absolute;left:0;top:0;width:380px;height:380px"></div>
+    </div>
+  </div>
+
+  <!-- CENA 2: edição -->
+  <div class="scene" id="s2">
+    <div class="line" id="s2p" style="top:240px"><span class="pill">01 • SERVIÇO</span></div>
+    <div class="line" id="s2a" style="top:350px;font-size:124px">EDIÇÃO</div>
+    <div class="line gwrap" id="s2b" style="top:480px;font-size:124px"><span class="g">DE VÍDEO</span></div>
+    <div id="scrWrap" class="abs" style="left:180px;top:690px;width:720px;height:420px;perspective:1600px">
+      <div id="scr" class="p3" style="position:absolute;left:0;top:0;width:720px;height:420px"></div>
+    </div>
+    <div id="tl" class="abs" style="left:90px;top:1210px;width:900px;height:110px;border-radius:22px;background:rgba(255,255,255,.07);border:3px solid rgba(255,255,255,.16)">
+      <div id="clips"></div>
+      <div id="playhead" class="abs" style="top:-30px;width:10px;height:170px;margin-left:-5px">
+        <div style="position:absolute;left:3px;top:14px;width:4px;height:156px;background:#fff;border-radius:2px"></div>
+        <div style="position:absolute;left:-12px;top:0;width:0;height:0;border-left:17px solid transparent;border-right:17px solid transparent;border-top:24px solid #fff"></div>
+      </div>
+    </div>
+    <div class="line" id="s2c" style="top:1390px;font-size:48px;font-weight:600;letter-spacing:0;color:rgba(255,255,255,.8)">Cortes • Legendas • Efeitos</div>
+  </div>
+
+  <!-- CENA 3: tráfego -->
+  <div class="scene" id="s3">
+    <div class="line" id="s3p" style="top:240px"><span class="pill" style="border-color:#FF2E93">02 • SERVIÇO</span></div>
+    <div class="line" id="s3a" style="top:350px;font-size:118px">GESTÃO</div>
+    <div class="line gwrap" id="s3b" style="top:476px;font-size:118px"><span class="g">DE TRÁFEGO</span></div>
+    <div id="barsWrap" class="abs" style="left:0;top:0;width:1080px;height:1920px;perspective:1800px;perspective-origin:540px 900px">
+      <div id="bars" class="p3" style="position:absolute;left:0;top:0;width:1080px;height:1920px;transform-origin:540px 1200px">
+        <div id="floor" class="face" style="left:90px;top:1000px;width:900px;height:400px;transform:rotateX(90deg);backface-visibility:visible;border-radius:30px;background:rgba(123,92,255,.12);background-image:linear-gradient(rgba(255,255,255,.12) 3px,transparent 3px),linear-gradient(90deg,rgba(255,255,255,.12) 3px,transparent 3px);background-size:100px 100px;border:4px solid rgba(123,92,255,.5)"></div>
+      </div>
+    </div>
+    <svg id="arrowSvg" class="abs" width="1080" height="1920" viewBox="0 0 1080 1920">
+      <defs><linearGradient id="ag" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#00E5FF"/><stop offset="1" stop-color="#FF2E93"/></linearGradient></defs>
+      <path id="arrowPath" d="M170 1080 L350 960 L510 1000 L700 830 L862 742" fill="none" stroke="url(#ag)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+      <g id="arrowHead"><path d="M-30 -26 L34 0 L-30 26 Z" fill="#FF2E93"/></g>
+    </svg>
+    <div id="target" class="abs" style="left:848px;top:628px;width:150px;height:150px">
+      <svg viewBox="-60 -60 120 120" width="150" height="150"><g stroke="#00E5FF" stroke-width="8" fill="none"><circle r="36"/><circle r="15"/><line x1="0" y1="-56" x2="0" y2="-42"/><line x1="0" y1="42" x2="0" y2="56"/><line x1="-56" y1="0" x2="-42" y2="0"/><line x1="42" y1="0" x2="56" y2="0"/></g><circle r="6" fill="#FF2E93"/></svg>
+    </div>
+    <div class="line" id="s3c" style="top:1500px;font-size:48px;font-weight:600;letter-spacing:0;color:rgba(255,255,255,.8)">Anúncios para o público certo</div>
+  </div>
+
+  <!-- CENA 4: mensagem -->
+  <div class="scene" id="s4">
+    <div id="s4wrap" class="abs" style="left:0;top:0;width:1080px;height:1920px;perspective:1600px">
+      <div id="s4in" class="p3" style="position:absolute;left:0;top:0;width:1080px;height:1920px;transform-origin:540px 960px">
+        <div class="line" id="s4a" style="top:560px;font-size:120px">VÍDEO QUE</div>
+        <div class="line" id="s4b" style="top:690px;font-size:170px">PRENDE.</div>
+        <div class="line gwrap" id="s4c" style="top:930px;font-size:120px"><span class="g">ANÚNCIO QUE</span></div>
+        <div class="line gwrap" id="s4d" style="top:1060px;font-size:170px"><span class="g">VENDE.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENA 5: final -->
+  <div class="scene" id="s5">
+    <div id="coinWrap" class="abs" style="left:220px;top:330px;width:640px;height:640px;perspective:1800px">
+      <div id="coin" class="p3" style="position:absolute;left:0;top:0;width:640px;height:640px">
+        <img class="face" src="__LOGO__" style="left:0;top:0;width:640px;height:640px;border-radius:50%">
+        <div class="face" style="left:0;top:0;width:640px;height:640px;border-radius:50%;transform:rotateY(180deg);background:linear-gradient(45deg,#00E5FF,#7B5CFF,#FF2E93);border:16px solid #fff3"></div>
+      </div>
+    </div>
+    <div class="line" id="s5a" style="top:1080px;font-size:118px">SIGA O PERFIL</div>
+    <div class="line" id="s5b" style="top:1250px"><span class="pill" style="font-size:44px;letter-spacing:1px;border-color:#FF2E93;padding:22px 44px">Orçamento no direct ➜</span></div>
+    <div class="line" id="s5c" style="top:1410px;font-size:40px;font-weight:500;letter-spacing:0;color:rgba(255,255,255,.65)">Edição de vídeo • Gestão de tráfego</div>
+  </div>
+
+  <!-- transição -->
+  <div id="wipe" class="abs" style="left:-310px;top:-340px;width:1700px;height:2600px;background:linear-gradient(135deg,#00E5FF,#7B5CFF 50%,#FF2E93);display:none"></div>
+
+  <!-- textura stop motion -->
+  <div class="abs" style="width:1080px;height:1920px;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)"></div>
+  <svg class="abs" width="1080" height="1920" style="opacity:.13;mix-blend-mode:overlay">
+    <filter id="n"><feTurbulence id="turb" type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="1"/></filter>
+    <rect width="1080" height="1920" filter="url(#n)"/>
+  </svg>
+</div>
+
+<script>
+const FPS = 12, DUR = 16;
+const B = [3.25, 6.5, 10.0, 13.0];
+const $ = id => document.getElementById(id);
+const clamp = (x,a=0,b=1) => Math.max(a, Math.min(b, x));
+const seg = (t,a,b) => clamp((t-a)/(b-a));
+const lerp = (a,b,x) => a + (b-a)*x;
+const eOutBack = x => { const c1=1.9, c3=c1+1; return 1 + c3*Math.pow(x-1,3) + c1*Math.pow(x-1,2); };
+const eOutCubic = x => 1 - Math.pow(1-x,3);
+const eInCubic = x => x*x*x;
+const eOutBounce = x => { const n=7.5625, d=2.75;
+  if (x < 1/d) return n*x*x; if (x < 2/d) return n*(x-=1.5/d)*x+.75;
+  if (x < 2.5/d) return n*(x-=2.25/d)*x+.9375; return n*(x-=2.625/d)*x+.984375; };
+let FRAME = 0;
+function rnd(id){ let h = (Math.imul(FRAME+1, 374761393) ^ Math.imul(id+7, 668265263)) | 0;
+  h = Math.imul(h ^ (h>>>13), 1274126177); h ^= h>>>16; return (h>>>0) / 4294967296; }
+function jit(id, a=1){ return `translate(${((rnd(id)-.5)*7*a).toFixed(2)}px,${((rnd(id+50)-.5)*7*a).toFixed(2)}px) rotate(${((rnd(id+90)-.5)*1.3*a).toFixed(2)}deg)`; }
+
+// "carimbo": aparece grande e assenta
+function stamp(el, t, t0, id, from=1.9){
+  if (t < t0) { el.style.opacity = 0; return; }
+  const x = seg(t, t0, t0+0.25);
+  const s = lerp(from, 1, eOutBack(x));
+  el.style.opacity = 1;
+  el.style.transform = `${jit(id)} scale(${s})`;
+}
+// entra deslizando de um lado
+function slideIn(el, t, t0, id, dir=-1, dist=1200){
+  if (t < t0) { el.style.opacity = 0; return; }
+  const x = eOutBack(seg(t, t0, t0+0.42));
+  el.style.opacity = 1;
+  el.style.transform = `${jit(id)} translateX(${dir*dist*(1-x)}px)`;
+}
+function pop(el, t, t0, id){
+  if (t < t0) { el.style.opacity = 0; return; }
+  const s = eOutBack(seg(t, t0, t0+0.3));
+  el.style.opacity = 1;
+  el.style.transform = `${jit(id)} scale(${s})`;
+}
+
+// ---- caixas 3D ----
+function makeBox(parent, cls){
+  const el = document.createElement('div'); el.className = 'p3'; el.style.position = 'absolute';
+  const faces = {};
+  for (const f of ['back','bottom','left','right','top','front']) {
+    const d = document.createElement('div'); d.className = 'face ' + cls + '-' + f;
+    el.appendChild(d); faces[f] = d;
+  }
+  parent.appendChild(el); return {el, faces};
+}
+function setF(el,l,t,w,h,tr){ Object.assign(el.style,{left:l+'px',top:t+'px',width:w+'px',height:h+'px',transform:tr}); }
+function sizeBox(Bx, x, yBottom, w, h, d){
+  const {el, faces:F} = Bx;
+  Object.assign(el.style,{left:x+'px',top:(yBottom-h)+'px',width:w+'px',height:h+'px'});
+  setF(F.front,0,0,w,h,`translateZ(${d/2}px)`);
+  setF(F.back,0,0,w,h,`rotateY(180deg) translateZ(${d/2}px)`);
+  setF(F.right,(w-d)/2,0,d,h,`rotateY(90deg) translateZ(${w/2}px)`);
+  setF(F.left,(w-d)/2,0,d,h,`rotateY(-90deg) translateZ(${w/2}px)`);
+  setF(F.top,0,(h-d)/2,w,d,`rotateX(90deg) translateZ(${h/2}px)`);
+  setF(F.bottom,0,(h-d)/2,w,d,`rotateX(-90deg) translateZ(${h/2}px)`);
+}
+
+// ---- cubo de ícones ----
+const W = 'stroke="#fff" stroke-width="16" fill="none" stroke-linecap="round" stroke-linejoin="round"';
+const ICONS = {
+  play: `<svg viewBox="0 0 200 200"><path d="M70 45 L160 100 L70 155 Z" fill="#fff" stroke="#fff" stroke-width="14" stroke-linejoin="round"/></svg>`,
+  chart:`<svg viewBox="0 0 200 200"><polyline points="30,150 75,105 105,125 165,60" ${W}/><polyline points="125,58 167,58 167,100" ${W}/></svg>`,
+  target:`<svg viewBox="0 0 200 200"><g ${W}><circle cx="100" cy="100" r="58"/><circle cx="100" cy="100" r="24"/><line x1="100" y1="15" x2="100" y2="35"/><line x1="100" y1="165" x2="100" y2="185"/><line x1="15" y1="100" x2="35" y2="100"/><line x1="165" y1="100" x2="185" y2="100"/></g></svg>`,
+  cut:`<svg viewBox="0 0 200 200"><g ${W}><circle cx="62" cy="150" r="24"/><circle cx="138" cy="150" r="24"/><line x1="78" y1="130" x2="150" y2="35"/><line x1="122" y1="130" x2="50" y2="35"/></g></svg>`,
+  heart:`<svg viewBox="0 0 200 200"><path d="M100 168 C30 118 22 70 52 50 C76 34 96 50 100 66 C104 50 124 34 148 50 C178 70 170 118 100 168 Z" fill="#fff"/></svg>`,
+  ads:`<svg viewBox="0 0 200 200"><text x="100" y="128" text-anchor="middle" font-family="Inter" font-weight="800" font-size="84" fill="#fff">ADS</text></svg>`
+};
+const cube = $('cube');
+const cubeFaces = [
+  ['play',  'linear-gradient(135deg,#00E5FF,#7B5CFF)', 'translateZ(190px)'],
+  ['chart', 'linear-gradient(135deg,#7B5CFF,#FF2E93)', 'rotateY(90deg) translateZ(190px)'],
+  ['target','linear-gradient(135deg,#FF2E93,#7B5CFF)', 'rotateY(180deg) translateZ(190px)'],
+  ['cut',   'linear-gradient(135deg,#00B8D9,#4a35b5)', 'rotateY(-90deg) translateZ(190px)'],
+  ['heart', 'linear-gradient(135deg,#FF6FB5,#B04DFF)', 'rotateX(90deg) translateZ(190px)'],
+  ['ads',   'linear-gradient(135deg,#3b2a8f,#1a6f9a)', 'rotateX(-90deg) translateZ(190px)'],
+];
+for (const [ic, bg, tr] of cubeFaces) {
+  const f = document.createElement('div'); f.className = 'face cf';
+  f.style.background = bg; f.style.transform = tr; f.innerHTML = ICONS[ic]; cube.appendChild(f);
+}
+
+// ---- tela 3D ----
+const scrBox = makeBox($('scr'), 'scr');
+sizeBox(scrBox, 0, 420, 720, 420, 44);
+scrBox.faces.front.innerHTML = `
+  <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,#2a1d5c,#0E0B1F 70%)"></div>
+  <div id="scrPlay" style="position:absolute;left:258px;top:110px;width:180px;height:180px;border-radius:50%;background:linear-gradient(135deg,#00E5FF,#7B5CFF,#FF2E93);display:flex;align-items:center;justify-content:center">
+    <svg viewBox="0 0 200 200" width="110" height="110"><path d="M70 45 L160 100 L70 155 Z" fill="#fff" stroke="#fff" stroke-width="14" stroke-linejoin="round"/></svg></div>
+  <div style="position:absolute;left:40px;right:40px;bottom:36px;height:12px;border-radius:6px;background:rgba(255,255,255,.18)">
+    <div id="scrProg" style="height:12px;border-radius:6px;width:0;background:linear-gradient(90deg,#00E5FF,#FF2E93)"></div></div>
+  <div style="position:absolute;left:36px;top:30px;display:flex;align-items:center;gap:12px;color:#fff;font:700 28px Inter">
+    <span id="recDot" style="width:20px;height:20px;border-radius:50%;background:#FF2E93;display:inline-block"></span>EDITANDO</div>`;
+
+// ---- clipes da timeline ----
+const CLIPS = [[150,'#00E5FF'],[230,'#7B5CFF'],[120,'#FF2E93'],[190,'#00B8D9'],[130,'#B04DFF']];
+let cx = 20; const clipEls = [];
+for (const [w,c] of CLIPS) { const d = document.createElement('div'); d.className='clip';
+  d.style.left = cx+'px'; d.style.width = w+'px'; d.style.background = c; $('clips').appendChild(d); clipEls.push(d); cx += w+10; }
+
+// ---- barras 3D ----
+const HEIGHTS = [120, 190, 270, 360, 450];
+const bars = HEIGHTS.map((h,i) => makeBox($('bars'), i===4 ? 'hot bar' : 'bar'));
+// as classes compostas: "hot bar-front" etc.
+bars.forEach((b,i)=>{ if(i===4){ for(const k in b.faces){ b.faces[k].className = 'face hot bar-'+k; } } });
+
+const arrowPath = $('arrowPath'); const ALEN = arrowPath.getTotalLength();
+arrowPath.style.strokeDasharray = ALEN;
+
+function render(frame){
+  FRAME = frame;
+  const t = frame / FPS;
+  $('turb').setAttribute('seed', (frame % 97) + 1);
+  $('grid').style.transform = jit(1, .5);
+  $('glow1').style.transform = `translate(${Math.sin(t*.7)*60}px,${Math.cos(t*.5)*40}px)`;
+
+  const sc = t < B[0] ? 1 : t < B[1] ? 2 : t < B[2] ? 3 : t < B[3] ? 4 : 5;
+  for (let i=1;i<=5;i++) $('s'+i).style.display = (i===sc) ? 'block' : 'none';
+
+  // transição tipo "papel" atravessando a tela
+  const wipe = $('wipe'); wipe.style.display = 'none';
+  for (const b of B) { if (t > b-0.26 && t < b+0.26) {
+    const x = seg(t, b-0.25, b+0.25);
+    wipe.style.display = 'block';
+    wipe.style.transform = `translateX(${lerp(1900,-1900,x)}px) rotate(-12deg)`;
+  } }
+
+  if (sc === 1) {
+    const u = t;
+    const drop = eOutBounce(seg(u, 0.05, 0.9));
+    const hop = Math.sin(Math.PI*seg(u, 2.2, 2.65)) * 150;
+    $('cubeWrap').style.transform = `${jit(10)} translateY(${-1300*(1-drop) - hop}px)`;
+    const ry = 30 + u*55 + 90*eOutCubic(seg(u,2.2,2.65));
+    $('cube').style.transform = `rotateX(-24deg) rotateY(${ry}deg) rotateZ(${(rnd(11)-.5)*3}deg)`;
+    const sh = 0.4 + 0.6*drop - hop/400;
+    $('cubeShadow').style.transform = `scale(${sh})`; $('cubeShadow').style.opacity = sh;
+    stamp($('s1a'), u, 0.95, 20, 1.6);
+    stamp($('s1b'), u, 1.25, 21, 1.6);
+    stamp($('s1c'), u, 1.6, 22, 2.2);
+  }
+
+  if (sc === 2) {
+    const u = t - B[0];
+    pop($('s2p'), u, 0.15, 30);
+    slideIn($('s2a'), u, 0.25, 31, -1);
+    slideIn($('s2b'), u, 0.4, 32, 1);
+    const e = eOutBack(seg(u, 0.35, 1.0));
+    const sway = Math.sin(u*2.2)*7;
+    $('scrWrap').style.transform = `${jit(33)} translateY(${(1-e)*200}px)`;
+    $('scr').style.transform = `rotateX(10deg) rotateY(${lerp(110,-16,e) + sway}deg)`;
+    $('scr').style.opacity = u < 0.35 ? 0 : 1;
+    $('tl').style.transform = jit(34);
+    $('tl').style.opacity = u < 0.8 ? 0 : 1;
+    clipEls.forEach((c,i)=>{ const t0 = 0.95 + i*0.2;
+      if (u < t0) { c.style.opacity = 0; return; }
+      const d = eOutBounce(seg(u, t0, t0+0.35)); c.style.opacity = 1;
+      c.style.transform = `translateY(${-260*(1-d)}px) rotate(${(rnd(40+i)-.5)*4}deg)`; });
+    const ph = seg(u, 2.0, 3.1);
+    $('playhead').style.left = (20 + ph*860) + 'px';
+    $('playhead').style.opacity = u < 2.0 ? 0 : 1;
+    $('scrProg').style.width = (ph*100) + '%';
+    $('scrPlay').style.transform = `scale(${1 + 0.08*Math.sin(u*9)})`;
+    $('recDot').style.opacity = (frame % 6) < 3 ? 1 : 0.2;
+    pop($('s2c'), u, 1.9, 35);
+  }
+
+  if (sc === 3) {
+    const u = t - B[1];
+    pop($('s3p'), u, 0.15, 50);
+    slideIn($('s3a'), u, 0.25, 51, 1);
+    slideIn($('s3b'), u, 0.4, 52, -1);
+    $('barsWrap').style.transform = jit(53, .6);
+    $('bars').style.transform = `rotateX(-14deg) rotateY(${22 + Math.sin(u*1.6)*6}deg)`;
+    bars.forEach((b,i)=>{ const t0 = 0.55 + i*0.22;
+      const g = eOutBack(seg(u, t0, t0+0.45));
+      const h = Math.max(0, HEIGHTS[i]*g);
+      b.el.style.display = h < 2 ? 'none' : 'block';
+      sizeBox(b, 540 + (i-2)*165 - 60, 1200, 120, h, 120); });
+    const a = eOutCubic(seg(u, 1.9, 2.6));
+    $('arrowSvg').style.display = u < 1.9 ? 'none' : 'block';
+    $('arrowSvg').style.transform = jit(54, .6);
+    arrowPath.style.strokeDashoffset = ALEN*(1-a);
+    const p = arrowPath.getPointAtLength(Math.max(1, ALEN*a));
+    const p0 = arrowPath.getPointAtLength(Math.max(0, ALEN*a - 20));
+    const ang = Math.atan2(p.y-p0.y, p.x-p0.x)*180/Math.PI;
+    $('arrowHead').setAttribute('transform', `translate(${p.x},${p.y}) rotate(${ang})`);
+    pop($('target'), u, 2.55, 55);
+    pop($('s3c'), u, 1.2, 56);
+  }
+
+  if (sc === 4) {
+    const u = t - B[2];
+    $('s4in').style.transform = `rotateY(${Math.sin(u*1.8)*9}deg) rotateX(${Math.cos(u*1.3)*5}deg)`;
+    stamp($('s4a'), u, 0.25, 60, 1.7);
+    stamp($('s4b'), u, 0.6, 61, 2.3);
+    stamp($('s4c'), u, 1.25, 62, 1.7);
+    stamp($('s4d'), u, 1.6, 63, 2.3);
+  }
+
+  if (sc === 5) {
+    const u = t - B[3];
+    const e = eOutCubic(seg(u, 0.1, 1.15));
+    $('coinWrap').style.transform = `${jit(70)} scale(${lerp(0.25,1,e)})`;
+    $('coin').style.transform = `rotateY(${lerp(900,0,e) + Math.sin(u*2)*8}deg)`;
+    $('coinWrap').style.opacity = u < 0.1 ? 0 : 1;
+    stamp($('s5a'), u, 1.2, 71, 2.0);
+    pop($('s5b'), u, 1.6, 72);
+    pop($('s5c'), u, 1.95, 73);
+  }
+}
+window.render = render; window.TOTAL = FPS*DUR;
+</script>
+</body></html>
