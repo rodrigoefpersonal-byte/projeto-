@@ -11,10 +11,14 @@ SUSP_END=$(python3 -c "print(48+$DUR-$SW+0.2)")
 SUSP_FADE=$(python3 -c "print($DUR-$SW-2.5)")
 DELAY=$(python3 -c "print(int($SW*1000))")
 
+NAR=assets/narracao-$P.mp3; TARGET=-14
+MUS=assets/musica-$P.mp3; [ -f "$MUS" ] || MUS=assets/musica-p1.mp3
+if [ ! -f "$NAR" ]; then NAR=build/$P-silence.wav; TARGET=-17; ffmpeg -y -v error -f lavfi -i anullsrc=r=48000:cl=stereo -t "$DUR" "$NAR"; echo "(sem narração: prévia)"; fi
+
 ffmpeg -y -v error \
-  -i assets/narracao-$P.mp3 \
+  -i "$NAR" \
   -i build/$P-marimba.wav \
-  -i assets/musica-$P.mp3 \
+  -i "$MUS" \
   -i build/$P-sfx.wav \
   -i build/$P-silent.mp4 \
   -filter_complex "
@@ -24,7 +28,7 @@ ffmpeg -y -v error \
     [m1][m2]amix=inputs=2:normalize=0:duration=longest[bed];
     [bed][sc]sidechaincompress=threshold=0.04:ratio=5:attack=25:release=400:makeup=1[duck];
     [3:a]aresample=48000,volume=-5dB[fx];
-    [nar][duck][fx]amix=inputs=3:normalize=0:duration=first,atrim=0:${DUR},loudnorm=I=-14:TP=-1.5:LRA=11[out]" \
+    [nar][duck][fx]amix=inputs=3:normalize=0:duration=first,atrim=0:${DUR},loudnorm=I=${TARGET}:TP=-1.5:LRA=11[out]" \
   -map 4:v -map "[out]" -c:v copy -c:a aac -b:a 192k -ar 48000 -movflags +faststart -t "$DUR" \
   build/$P-final.mp4
 echo "ok build/$P-final.mp4"

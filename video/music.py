@@ -70,14 +70,28 @@ MELODY = [  # (beat offset within 4-bar phrase, midi, length beats)
 ]
 
 
+MODES = {
+    "major": dict(bpm=105, chords=CHORDS, bass=BASS, melody=MELODY),
+    "detective": dict(bpm=98,
+        chords=[[57, 60, 64, 69], [53, 57, 60, 65], [50, 53, 57, 62], [52, 56, 59, 64]],
+        bass=[33, 29, 26, 28],
+        melody=[(0, 76, 1), (1, 72, 0.5), (1.5, 69, 0.5), (2, 71, 1), (3, 72, 1), (4, 77, 1), (5, 76, 0.5), (5.5, 74, 0.5), (6, 72, 2),
+                (8, 74, 1), (9, 72, 0.5), (9.5, 69, 0.5), (10, 65, 1), (11, 69, 1), (12, 68, 0.5), (12.5, 71, 0.5), (13, 74, 1), (14, 76, 2)]),
+}
+
+
 def main():
+    global BEAT
     out, dur = sys.argv[1], float(sys.argv[2])
+    mode = MODES[sys.argv[3] if len(sys.argv) > 3 else "major"]
+    BEAT = 60 / mode["bpm"]
+    CH, BS, ML = mode["chords"], mode["bass"], mode["melody"]
     L = np.zeros(int(SR * (dur + 2)))
     R = np.zeros_like(L)
     bars = int(dur / (4 * BEAT)) + 1
     for b in range(bars):
         t0 = b * 4 * BEAT
-        ch = CHORDS[b % 4]
+        ch = CH[b % 4]
         # arpeggio 8ths
         pat = [0, 1, 2, 3, 2, 1, 2, 3]
         for k, idx in enumerate(pat):
@@ -87,7 +101,7 @@ def main():
             add(R, s * pan, t0 + k * BEAT / 2)
         # bass on 1 and 3 (+ pickup)
         for beat, oct_ in [(0, 0), (2, 0), (3.5, 12)]:
-            s = pluck_bass(note_hz(BASS[b % 4] + oct_), 0.45, 0.9)
+            s = pluck_bass(note_hz(BS[b % 4] + oct_), 0.45, 0.9)
             add(L, s, t0 + beat * BEAT)
             add(R, s, t0 + beat * BEAT)
         # shaker 16ths, claps on 2 and 4 (from bar 2)
@@ -103,7 +117,7 @@ def main():
         # melody enters from bar 2 (phrase every 4 bars)
         if b >= 2:
             phrase_t0 = ((b - 2) // 4) * 16 * BEAT + 2 * 4 * BEAT
-            for off, m, ln in MELODY:
+            for off, m, ln in ML:
                 tt = phrase_t0 + off * BEAT
                 if t0 <= tt < t0 + 4 * BEAT:
                     s = marimba(note_hz(m), 0.9, 0.85)
