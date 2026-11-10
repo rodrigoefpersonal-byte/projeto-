@@ -31,7 +31,7 @@ const server = http.createServer((req, res) => {
   await page.waitForFunction(() => window.ready === true, null, { timeout: 60000 });
   const words = JSON.parse(fs.readFileSync(path.join(ROOT, part, 'words.json'), 'utf8')).words;
   const meta = JSON.parse(fs.readFileSync(path.join(ROOT, part, 'meta.json'), 'utf8'));
-  await page.evaluate(w => window.setup(w), words);
+  await page.evaluate(([w, wp]) => window.setup(w, wp), [words, meta.warp || null]);
   fs.mkdirSync(path.join(ROOT, 'build'), { recursive: true });
 
   if (mode === 'stills') {

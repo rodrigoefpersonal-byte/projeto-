@@ -427,7 +427,7 @@ function update(t) {
 // ---------- 2D overlay ----------
 const out = document.getElementById('out'); const ctx = out.getContext('2d');
 let WORDS = [];
-const HL = { 'rachadura': '#ff4b3e', 'descer': '#ffd23f', 'firme': '#ffd23f', 'estacas': '#ffd23f', 'esqueleto': '#ffd23f', 'aço': '#ff8a1f', 'concreto': '#ffd23f', 'armado': '#ffd23f', 'marta': '#ffd23f', 'engenheira-chefe': '#ffd23f', 'décimo': '#ffd23f', 'segundo': '#ffd23f', 'linha': '#ff4b3e', 'fina': '#ff4b3e', 'pânico': '#ff4b3e', 'selo': '#ffd23f', 'gesso': '#ffd23f', 'mexer': '#ff4b3e', 'quebra': '#ff4b3e', 'partido': '#ff4b3e', 'seguinte': '#ffd23f', '40': '#ffd23f', '20': '#ffd23f', 'puxam': '#ff8a1f', 'apertam': '#7cc4ff', 'suspeitos': '#ffd23f', 'culpado': '#ff4b3e' };
+const HL = { 'rachadura': '#ff4b3e', 'descer': '#ffd23f', 'firme': '#ffd23f', 'estacas': '#ffd23f', 'esqueleto': '#ffd23f', 'aço': '#ff8a1f', 'concreto': '#ffd23f', 'armado': '#ffd23f', 'marta': '#ffd23f', 'engenheira-chefe': '#ffd23f', 'décimo': '#ffd23f', 'segundo': '#ffd23f', 'linha': '#ff4b3e', 'fina': '#ff4b3e', 'pânico': '#ff4b3e', 'selo': '#ffd23f', 'gesso': '#ffd23f', 'mexer': '#ff4b3e', 'quebra': '#ff4b3e', 'partido': '#ff4b3e', 'seguinte': '#ffd23f', '40': '#ffd23f', '20': '#ffd23f', 'puxam': '#ff8a1f', 'apertam': '#7cc4ff', 'suspeitos': '#ffd23f', 'culpado': '#ff4b3e', 'mano': '#ffd23f', 'chefona': '#ffd23f', 'fininha': '#ff4b3e', 'selinho': '#ffd23f', 'puxão': '#ff8a1f', 'aperto': '#7cc4ff', 'pronto': '#ffd23f', 'abalou': '#ff4b3e', 'segue': '#ffd23f' };
 function clean(w) { return w.replace(/[.,:;!?…]+$/g, '').replace(/…/g, ''); }
 function project(v) { const p = v.clone().project(camera); return { x: (p.x * 0.5 + 0.5) * W, y: (-p.y * 0.5 + 0.5) * H, behind: p.z > 1 }; }
 function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
@@ -497,13 +497,16 @@ function drawOverlay(t) {
   }
 }
 
-window.setup = async (words) => {
+let WARP = null; // [[newT, oldT], ...] maps narration time to animation timeline
+function warp(t) { if (!WARP) return t; const A = WARP; if (t <= A[0][0]) return A[0][1] + (t - A[0][0]); for (let i = 1; i < A.length; i++) if (t <= A[i][0]) { const [n0, o0] = A[i - 1], [n1, o1] = A[i]; return o0 + (o1 - o0) * (t - n0) / (n1 - n0); } const L = A[A.length - 1]; return L[1] + (t - L[0]); }
+window.setup = async (words, warpPts) => {
+  WARP = warpPts || null;
   WORDS = words.filter(w => !/^\[.*\]$/.test(w.text));
   await document.fonts.load('124px Lilita'); await document.fonts.load('800 34px Inter');
   return true;
 };
 window.renderFrame = (t) => {
-  update(t); sky.position.copy(camera.position); renderer.render(scene, camera); drawOverlay(t);
+  update(warp(t)); sky.position.copy(camera.position); renderer.render(scene, camera); drawOverlay(t);
   return out.toDataURL('image/jpeg', 0.93);
 };
 window.ready = true;
