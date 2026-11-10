@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#23164A"/>
+      <stop offset="0.55" stop-color="#110C26"/>
+      <stop offset="1" stop-color="#07060F"/>
+    </radialGradient>
+    <linearGradient id="brand" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#00E5FF"/>
+      <stop offset="0.5" stop-color="#7B5CFF"/>
+      <stop offset="1" stop-color="#FF2E93"/>
+    </linearGradient>
+    <linearGradient id="txt" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00E5FF"/>
+      <stop offset="0.55" stop-color="#7B5CFF"/>
+      <stop offset="1" stop-color="#FF2E93"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#7B5CFF" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#7B5CFF" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M60 0H0V60" fill="none" stroke="#fff" stroke-opacity="0.045" stroke-width="2"/>
+    </pattern>
+    <marker id="head" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto">
+      <path d="M0 0L10 5L0 10z" fill="#FF2E93"/>
+    </marker>
+  </defs>
+
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+  <rect width="1080" height="1350" fill="url(#grid)"/>
+  <circle cx="900" cy="200" r="380" fill="url(#glow)"/>
+  <circle cx="150" cy="1150" r="360" fill="url(#glow)" opacity="0.7"/>
+
+  <!-- tag -->
+  <rect x="80" y="110" width="410" height="62" rx="31" fill="#fff" fill-opacity="0.07" stroke="url(#brand)" stroke-width="3"/>
+  <circle cx="118" cy="141" r="9" fill="#FF2E93"/>
+  <text x="142" y="152" font-family="Inter" font-weight="700" font-size="26" letter-spacing="4" fill="#fff">COMEÇANDO HOJE</text>
+
+  <!-- headline -->
+  <text x="80" y="340" font-family="Inter" font-weight="800" font-size="104" fill="#fff">VÍDEO QUE</text>
+  <text x="80" y="450" font-family="Inter" font-weight="800" font-size="104" fill="#fff">PRENDE.</text>
+  <text x="80" y="590" font-family="Inter" font-weight="800" font-size="104" fill="url(#txt)">ANÚNCIO QUE</text>
+  <text x="80" y="700" font-family="Inter" font-weight="800" font-size="104" fill="url(#txt)">VENDE.</text>
+
+  <text x="80" y="790" font-family="Inter" font-weight="500" font-size="36" fill="#fff" fill-opacity="0.7">Edição de vídeo + gestão de tráfego para o</text>
+  <text x="80" y="840" font-family="Inter" font-weight="500" font-size="36" fill="#fff" fill-opacity="0.7">seu negócio crescer de verdade.</text>
+
+  <!-- card 1: edição -->
+  <rect x="80" y="910" width="440" height="190" rx="28" fill="#fff" fill-opacity="0.06" stroke="#fff" stroke-opacity="0.14" stroke-width="2"/>
+  <circle cx="150" cy="1005" r="44" fill="url(#brand)"/>
+  <path d="M138 982 Q133 979 133 986 L133 1024 Q133 1031 138 1028 L172 1008 Q177 1005 172 1002 Z" fill="#fff"/>
+  <text x="215" y="1000" font-family="Inter" font-weight="800" font-size="36" fill="#fff">Edição</text>
+  <text x="215" y="1044" font-family="Inter" font-weight="500" font-size="30" fill="#fff" fill-opacity="0.65">de vídeo</text>
+
+  <!-- card 2: tráfego -->
+  <rect x="560" y="910" width="440" height="190" rx="28" fill="#fff" fill-opacity="0.06" stroke="#fff" stroke-opacity="0.14" stroke-width="2"/>
+  <circle cx="630" cy="1005" r="44" fill="url(#brand)"/>
+  <polyline points="608,1025 624,1008 638,1016 656,990" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="695" y="1000" font-family="Inter" font-weight="800" font-size="36" fill="#fff">Gestão</text>
+  <text x="695" y="1044" font-family="Inter" font-weight="500" font-size="30" fill="#fff" fill-opacity="0.65">de tráfego</text>
+
+  <!-- rodapé -->
+  <line x1="80" y1="1190" x2="1000" y2="1190" stroke="#fff" stroke-opacity="0.12" stroke-width="2"/>
+  <text x="80" y="1262" font-family="Inter" font-weight="700" font-size="38" fill="#fff">Siga para ver como funciona</text>
+  <line x1="780" y1="1250" x2="985" y2="1250" stroke="#B64BE0" stroke-width="10" stroke-linecap="round" marker-end="url(#head)"/>
+</svg>
