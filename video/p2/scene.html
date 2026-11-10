@@ -194,7 +194,7 @@ function update(t) {
     tagAt(v3(3.7, LY + 2.6, -4.8), 'PILHA DE PISO', '#ffd23f', t, 29.0);
   }
   if (S === 'S6') {
-    showP2('lab'); teo.visible = true; lab.add(teo); teo.position.set(-1.4, 0, 1.4); teo.rotation.y = 0.9; pose(teo, { look: 0.1, shock: t > 40.45 ? 0.7 : 0 });
+    showP2('lab'); teo.visible = true; lab.add(teo); teo.position.set(0.0, 0, 1.0); teo.rotation.y = 1.0; pose(teo, { look: 0.1, shock: t > 40.45 ? 0.7 : 0 });
     sun.position.set(10, 40, -1000 + 30); sun.target.position.set(0, 0, -1000);
     // press
     const down = ease(seg(t, 39.4, 40.3)); const platY = lerp(4.6, SPY + SPH + 0.13, down) - (t > 40.3 ? 0.18 * ease(seg(t, 40.3, 40.6)) : 0);
