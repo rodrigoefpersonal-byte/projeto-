@@ -9,6 +9,7 @@ SW=$(python3 -c "import json;print(json.load(open('$P/meta.json'))['music_switch
 FADE1=$(python3 -c "print($SW-0.45)")
 SUSP_END=$(python3 -c "print(48+$DUR-$SW+0.2)")
 SUSP_FADE=$(python3 -c "print($DUR-$SW-2.5)")
+NARGAIN=$(python3 -c "import json;print(json.load(open('$P/meta.json')).get('nar_gain',3.2))")
 DELAY=$(python3 -c "print(int($SW*1000))")
 
 NAR=assets/narracao-$P.mp3; TARGET=-14
@@ -22,7 +23,7 @@ ffmpeg -y -v error \
   -i build/$P-sfx.wav \
   -i build/$P-silent.mp4 \
   -filter_complex "
-    [0:a]aresample=48000,volume=3.2dB,highpass=f=70,acompressor=threshold=0.1:ratio=3:attack=5:release=120:makeup=1.5,apad=whole_dur=${DUR},asplit=2[nar][sc];
+    [0:a]aresample=48000,volume=${NARGAIN}dB,highpass=f=70,acompressor=threshold=0.1:ratio=3:attack=5:release=120:makeup=1.5,apad=whole_dur=${DUR},asplit=2[nar][sc];
     [1:a]aresample=48000,volume=-15.7dB,afade=t=out:st=${FADE1}:d=0.7[m1];
     [2:a]aresample=48000,atrim=start=48:end=${SUSP_END},asetpts=PTS-STARTPTS,volume=10.5dB,afade=t=in:d=0.3,afade=t=out:st=${SUSP_FADE}:d=2.5,adelay=${DELAY}|${DELAY}[m2];
     [m1][m2]amix=inputs=2:normalize=0:duration=longest[bed];
