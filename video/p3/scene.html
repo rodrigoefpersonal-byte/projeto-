@@ -1,0 +1,319 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: 'Lilita'; src: url('/assets/fonts/LilitaOne.woff2') format('woff2'); }
+  html, body { margin: 0; background: #000; }
+  canvas { display: block; }
+</style>
+<script type="importmap">{ "imports": { "three": "/node_modules/three/build/three.module.js" } }</script>
+</head>
+<body>
+<canvas id="out" width="1080" height="1920"></canvas>
+<script type="module">
+import * as L from '/lib/world.js';
+const { THREE, W, H, clamp, seg, ease, easeOut, lerp, v3, lerpV, rng, mat, box, at, renderer, scene, camera, sky, sun, hemi,
+  city, tower, floors, stubs, setFloors, NF, FH, LY, COLS, HALF, CRACK_C, crackG, crackSegs, seal, sealA, sealB, sealMid,
+  person, pose, teo, marta, show, setSky, cam, camPath, glCanvas, ctx, clean, project, rr, outlined, pill, warp, setWarp, jibG } = L;
+
+// ======================= TIMELINE (script time) =======================
+const T = { S1: 0, S2: 7.6, S3: 16.8, S4: 26.7, S5: 33.3, S6: 40.7, S7: 51.6, S8: 59.2, S9: 67.0, S10: 74.9, END: 80.5 };
+const E = { drop: 5.5, trucks: 9.0, clock: 10.4, deadline: 12.0, duro: 14.6, cut: 16.8, hose: 20.0, water: 21.2, molinho: 22.8, pump: 24.4, happy: 25.5,
+  extra: 27.4, holes: 28.4, fraco: 31.6, quote: 37.0, core: 45.2, hammer: 48.2, result: 50.2, jacket: 54.2, carbon: 56.8,
+  bags: 61.8, newSeal: 63.6, inteiro: 65.8, moral1: 69.8, moral2: 72.2 };
+function sceneAt(t) { let c = 'S1'; for (const s of ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10']) if (t >= T[s]) c = s; return c; }
+
+// ======================= EXTRA ACTORS =======================
+function makeJorge(bucket) {
+  const g = person({ shirt: '#7d8590', pants: '#3a3f4a', hair: '#3b2a20', helmet: '#ff8a1f', badge: false }); const p = g.userData.p;
+  p.head.add(at(box(0.56, 0.11, 0.05, '#3b2a20'), 0, 0.34, 0.49));
+  p.armL.add(at(box(0.2, 0.36, 0.14, '#1d1f24'), 0, -0.82, 0.16)); p.armL.add(at(box(0.04, 0.3, 0.04, '#1d1f24'), 0.05, -0.5, 0.16));
+  if (bucket) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.26, 0.46, 14), mat('#8a9099')); b.position.set(0.0, 0.2, 0.78); b.castShadow = true; p.body.add(b);
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.02, 14), mat('#3fa7ff', { emissive: '#1d6fd0', emissiveIntensity: 0.4 })); w.position.set(0, 0.4, 0.78); p.body.add(w);
+    p.armL.rotation.x = -0.9; p.armR.rotation.x = -0.9; }
+  g.visible = false; city.add(g); return g;
+}
+const jorgeA = makeJorge(true), jorgeB = makeJorge(false), jorgeC = makeJorge(false);
+
+function makeTruck() {
+  const truck = new THREE.Group();
+  truck.add(at(box(7.4, 0.6, 2.2, '#3b4048'), 0, 1.05, 0));
+  for (const x of [-2.6, -1.4, 2.5]) for (const z of [-1.1, 1.1]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.42, 12), mat('#1d1f24')); w.rotation.x = Math.PI / 2; w.position.set(x, 0.58, z); w.castShadow = true; truck.add(w); }
+  truck.add(at(box(2.0, 2.0, 2.3, '#f4f4f4'), 2.9, 2.2, 0)); truck.add(at(box(0.08, 0.9, 1.9, '#7fc4ef'), 3.92, 2.55, 0)); truck.add(at(box(0.6, 0.3, 2.3, '#ff8a1f'), 3.6, 1.35, 0));
+  const drum = new THREE.Group(); drum.position.set(-0.6, 2.75, 0); drum.rotation.z = -0.22; truck.add(drum);
+  const d = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.25, 4.2, 12, 1), mat('#ff8a1f')); d.rotation.z = Math.PI / 2; d.castShadow = true; drum.add(d);
+  for (let i = 0; i < 4; i++) { const s = new THREE.Mesh(new THREE.TorusGeometry(1.0 - i * 0.08, 0.06, 4, 16), mat('#ffffff')); s.rotation.y = Math.PI / 2; s.position.x = -1.2 + i * 0.8; drum.add(s); }
+  return { truck, drum };
+}
+function cylBetween(a, b, r, color, opts) {
+  const len = a.distanceTo(b); const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1, 8), mat(color, opts));
+  m.scale.y = Math.max(0.001, len); m.position.copy(a.clone().add(b).multiplyScalar(0.5));
+  m.quaternion.setFromUnitVectors(v3(0, 1, 0), b.clone().sub(a).normalize()); return m;
+}
+
+// ---- concrete-pour site (everything in a local frame so cameras are easy) ----
+const site = new THREE.Group(); site.position.set(-6, 0, 16); site.rotation.y = 0.2; city.add(site);
+const hero = makeTruck(); site.add(hero.truck);
+site.add(jorgeB); jorgeB.position.set(-4.4, 0.2, 1.8); jorgeB.rotation.y = -0.75;
+const W3 = (x, y, z) => site.localToWorld(v3(x, y, z));
+const slump = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.95, 1.7, 18), mat('#a9aeb5', { roughness: 0.6 })); slump.castShadow = true; site.add(slump);
+site.add(at(box(2.4, 0.08, 2.4, '#8a6a46'), -5.6, 0.04, 3.9));
+const hopper = new THREE.Group(); site.add(hopper); hopper.position.set(-4.4, 0, -0.6);
+hopper.add(at(box(1.4, 0.8, 1.4, '#ffd23f'), 0, 0.4, 0)); hopper.add(at(box(1.9, 0.12, 1.9, '#f2a516'), 0, 0.85, 0));
+const hose = cylBetween(v3(-4.2, 2.6, 1.5), v3(-3.0, 5.9, 0.1), 0.09, '#2a2e36'); site.add(hose);
+const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1, 8), mat('#3fa7ff', { emissive: '#2a8ae6', emissiveIntensity: 0.5, transparent: true, opacity: 0.85 })); site.add(stream);
+const drops = []; for (let i = 0; i < 14; i++) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), mat('#7cc4ff', { emissive: '#3fa7ff', emissiveIntensity: 0.6 })); site.add(d); drops.push(d); }
+const flow = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.3, 1, 10), mat('#8c929b')); site.add(flow);
+// queue
+const queue = []; for (let i = 0; i < 5; i++) { const q = makeTruck(); q.truck.position.set(-62 + i * 10.5, 0, 29.2); q.truck.visible = false; city.add(q.truck); queue.push(q); }
+// site office
+const office = new THREE.Group(); office.position.set(-22, 0, 6); city.add(office);
+{ const C = '#2f6fb0'; office.add(at(box(6.2, 0.2, 2.8, '#6d6f78'), 0, 0.1, 0)); office.add(at(box(6.2, 0.2, 2.8, C), 0, 2.9, 0));
+  office.add(at(box(6.2, 2.8, 0.14, C), 0, 1.5, -1.33)); office.add(at(box(0.14, 2.8, 2.8, C), -3.03, 1.5, 0)); office.add(at(box(0.14, 2.8, 2.8, C), 3.03, 1.5, 0));
+  for (let i = 0; i < 12; i++) office.add(at(box(0.08, 2.7, 0.06, '#28609a'), -2.75 + i * 0.5, 1.5, -1.25)); }
+
+// ---- inside-the-concrete diagram ----
+const ins = new THREE.Group(); ins.position.set(0, 0, -2000); scene.add(ins);
+const holes = [], waters = [];
+{ const f = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), mat('#dfe5ec')); f.rotation.x = -Math.PI / 2; f.receiveShadow = true; ins.add(f);
+  const shell = new THREE.Mesh(new THREE.BoxGeometry(6, 4.4, 4.4), new THREE.MeshStandardMaterial({ color: '#c9ced6', transparent: true, opacity: 0.2, roughness: 0.9, depthWrite: false })); shell.position.y = 2.2; ins.add(shell);
+  const R = rng(17); const cols = ['#a39e93', '#8e8a82', '#b8b2a6', '#7a756c', '#c2bdb0'];
+  for (let i = 0; i < 170; i++) { const s = 0.18 + R() * 0.26; const g = box(s, s * (0.7 + R() * 0.5), s * (0.8 + R() * 0.4), cols[i % 5]); g.rotation.set(R() * 3, R() * 3, R() * 3);
+    g.position.set((R() - 0.5) * 5.5, 0.3 + R() * 3.8, (R() - 0.5) * 3.9); g.castShadow = false; ins.add(g); }
+  for (let i = 0; i < 48; i++) { const p = v3((R() - 0.5) * 5.4, 0.4 + R() * 3.6, (R() - 0.5) * 3.8); const rr_ = 0.13 + R() * 0.1;
+    const w = new THREE.Mesh(new THREE.SphereGeometry(rr_, 10, 8), mat('#3fa7ff', { emissive: '#2a8ae6', emissiveIntensity: 0.45, transparent: true, opacity: 0.9 })); w.position.copy(p); ins.add(w); waters.push(w);
+    const h = new THREE.Mesh(new THREE.SphereGeometry(rr_ * 1.05, 10, 8), mat('#101216', { roughness: 1 })); h.position.copy(p); h.scale.setScalar(0.0001); ins.add(h); holes.push(h); } }
+
+// ---- floor 12 props ----
+const SX = sealMid.x, SZ = CRACK_C.z + sealMid.z;
+const drill = new THREE.Group(); drill.position.set(SX + 2.0, LY, SZ + 0.3); city.add(drill);
+drill.add(at(box(1.3, 0.12, 1.3, '#2d3340'), 0, 0.06, 0)); drill.add(at(box(0.16, 2.4, 0.16, '#9aa1a9'), 0, 1.3, -0.45)); drill.add(at(box(0.5, 0.1, 0.9, '#2d3340'), 0, 0.17, -0.1));
+const motor = new THREE.Group(); drill.add(motor); motor.add(at(box(0.62, 0.55, 0.55, '#ff8a1f'), 0, 0, 0)); motor.add(at(box(0.2, 0.2, 0.5, '#1d1f24'), 0, 0.1, -0.35)); motor.add(at(box(0.16, 0.5, 0.16, '#9aa1a9'), 0, -0.45, 0));
+const bit = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.2, 16, 1, true), mat('#d5dae0', { side: THREE.DoubleSide, metalness: 0.4, roughness: 0.4 })); motor.add(bit); bit.position.y = -0.7;
+const core = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.9, 16), mat('#a9aeb5')); core.castShadow = true; city.add(core);
+const hammer = new THREE.Group(); city.add(hammer);
+{ const b = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.55, 12), mat('#d5dae0', { metalness: 0.3 })); b.position.y = 0.35; hammer.add(b); hammer.add(at(box(0.2, 0.18, 0.12, '#ff8a1f'), 0, 0.66, 0)); hammer.add(at(box(0.04, 0.2, 0.04, '#1d1f24'), 0, -0.02, 0)); }
+const jackets = []; for (const [x, z] of [[-2, -6], [2, -6], [-2, -2], [2, -2]]) {
+  const g = new THREE.Group(); g.position.set(x, LY, z); city.add(g);
+  g.add(at(box(0.98, 1.7, 0.98, '#4a5563', { metalness: 0.4, roughness: 0.5 }), 0, 0.85, 0));
+  for (const y of [0.2, 0.85, 1.5]) g.add(at(box(1.06, 0.12, 1.06, '#ff8a1f'), 0, y, 0));
+  for (const [dx, dz] of [[-.5, -.5], [.5, -.5], [-.5, .5], [.5, .5]]) g.add(at(box(0.1, 1.7, 0.1, '#2d3340'), dx, 0.85, dz));
+  g.visible = false; jackets.push(g); }
+const strips = []; for (let i = 0; i < 6; i++) { const horiz = i < 3; const len = horiz ? 6.6 : 5.0;
+  const s = box(horiz ? len : 0.5, 0.025, horiz ? 0.5 : len, '#15171c', { roughness: 0.3, metalness: 0.4 }); s.castShadow = false;
+  s.userData = { horiz, len, c: horiz ? -4.3 + (i % 3 - 1) * 0.9 : -2.5 + (i % 3 - 1) * 1.6 }; s.position.set(horiz ? 0 : s.userData.c, LY - 0.375, horiz ? s.userData.c : -4.3); s.visible = false; city.add(s); strips.push(s); }
+const bagPiles = []; { const R = rng(23); for (const [x, z, n] of [[-3.7, -5.8, 5], [0, -6.4, 6], [3.7, -5.8, 5]]) { const g = new THREE.Group(); g.position.set(x, LY, z); city.add(g);
+  for (let k = 0; k < n; k++) for (let j = 0; j < 2; j++) { const bg = box(0.95, 0.32, 0.55, ['#d9c28f', '#cdb57d', '#e2cd9c'][(k + j) % 3]); bg.position.set((j - 0.5) * 0.98 + (R() - 0.5) * 0.04, 0.17 + k * 0.33, (k % 2 ? 0.25 : -0.25)); bg.rotation.y = (R() - 0.5) * 0.15; g.add(bg); }
+  g.userData.n = n; g.visible = false; bagPiles.push(g); } }
+const dialGauge = box(0.5, 0.35, 0.3, '#2d3340'); dialGauge.visible = false; city.add(dialGauge);
+
+// ---- finale props ----
+const glass = new THREE.Group(); city.add(glass); const panes = [];
+for (let i = 0; i < NF; i++) for (let sd = 0; sd < 4; sd++) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, FH - 0.5), new THREE.MeshStandardMaterial({ color: '#6fb7ee', transparent: true, opacity: 0.5, roughness: 0.15, metalness: 0.2, side: THREE.DoubleSide, flatShading: true }));
+  const y = i * FH + FH / 2; if (sd === 0) m.position.set(0, y, HALF); if (sd === 1) { m.position.set(0, y, -HALF); } if (sd === 2) { m.position.set(HALF, y, 0); m.rotation.y = Math.PI / 2; } if (sd === 3) { m.position.set(-HALF, y, 0); m.rotation.y = Math.PI / 2; }
+  m.userData.i = i; glass.add(m); panes.push(m); }
+const ROOFY = NF * FH;
+const roof = new THREE.Group(); city.add(roof);
+roof.add(at(box(HALF * 2 + 0.4, 0.4, HALF * 2 + 0.4, '#c4c8cd'), 0, ROOFY + 0.2, 0));
+for (const [x, z, w, d] of [[0, HALF, HALF * 2, 0.25], [0, -HALF, HALF * 2, 0.25], [HALF, 0, 0.25, HALF * 2], [-HALF, 0, 0.25, HALF * 2]]) roof.add(at(box(w, 1.0, d, '#d9dde3'), x, ROOFY + 0.9, z));
+roof.visible = false;
+const sticker = at(box(0.24, 0.1, 0.02, '#3ddc84'), 0, 0.37, 0.31); teo.userData.p.body.add(sticker); sticker.visible = false;
+
+// ======================= UPDATE =======================
+const tags = []; let tagMinY = 250; let hud = [], endCard = null, flash = 0, vignette = 0, darken = 0, shake = 0, tNow = 0, moral = null, stamp = null, bubble = null;
+function tagAt(world, text, dot, t, t0, t1 = 1e9) { if (t < t0 || t >= t1) return; tags.push({ world: world.clone(), text, dot, age: t - t0 }); }
+function setSeal(open) { seal.visible = true; seal.position.y = 0; sealA.position.set(-0.09 - (open ? 0.06 : 0), 0, 0); sealB.position.set(0.09 + (open ? 0.06 : 0), 0, 0); sealA.rotation.z = open ? 0.12 : 0; sealB.rotation.z = open ? -0.12 : 0; }
+function floorLight() { sun.position.set(40, LY + 50, 50); sun.target.position.set(0, LY, 0); }
+const showMode = m => { show(m === 'ins' ? 'none' : m); ins.visible = m === 'ins'; if (m === 'ins') { sky.visible = false; scene.background = new THREE.Color('#e9eef4'); } };
+
+function update(t) {
+  tNow = t; tagMinY = 250; tags.length = 0; hud = []; endCard = null; flash = 0; vignette = 0; darken = 0; shake = 0; moral = null; stamp = null; bubble = null;
+  const S = sceneAt(t);
+  setSky(1); setFloors(NF); showMode('city');
+  teo.visible = marta.visible = false; jorgeA.visible = jorgeB.visible = jorgeC.visible = false;
+  crackG.visible = false; setSeal(true); crackSegs.forEach(s => s.visible = true);
+  floors[12].rotation.set(0, 0, 0); floors[12].position.y = 12 * FH;
+  queue.forEach(q => q.truck.visible = false); site.visible = true;
+  slump.visible = false; stream.visible = false; flow.visible = false; hose.visible = false; drops.forEach(d => d.visible = false); hopper.visible = false;
+  drill.visible = false; core.visible = false; hammer.visible = false; jackets.forEach(j => j.visible = false); strips.forEach(s => s.visible = false); bagPiles.forEach(p => p.visible = false); dialGauge.visible = false;
+  glass.visible = false; roof.visible = false; sticker.visible = false; stubs.visible = true;
+  jibG.rotation.y = 0.6 + Math.sin(t * 0.12) * 0.4; hero.drum.rotation.x = t * 2.2; queue.forEach((q, i) => q.drum.rotation.x = t * 2 + i);
+  sun.position.set(45, 90, 35); sun.target.position.set(0, 0, 0);
+  pose(teo, {}); pose(marta, {}); pose(jorgeA, {}); pose(jorgeB, {}); pose(jorgeC, {});
+
+  // ---------- S1: Jorge + bucket, "quase derrubou um andar" ----------
+  if (S === 'S1') {
+    if (t < E.drop - 0.3) {
+      jorgeA.visible = true; jorgeA.position.set(0, 0.2, 18); jorgeA.rotation.y = 0.15; pose(jorgeA, { look: 0.2 + 0.05 * Math.sin(t * 2) }); jorgeA.userData.p.armL.rotation.x = -1.0; jorgeA.userData.p.armR.rotation.x = -1.0;
+      camPath(t, 0, E.drop - 0.3, v3(2.2, 3.4, 29), v3(0.9, 2.8, 23.2), v3(0, 2.0, 18), v3(0, 2.4, 18), 44, 38);
+      if (t > 3.2) tagAt(v3(0.4, 3.2, 18.3), 'BALDE DE ÁGUA', '#3fa7ff', t, 3.2);
+      if (t < 3.6) hud.push({ kind: 'big', top: 'PARTE 3', sub: 'A PROVA', age: t - 0.1, y: 250 });
+    } else {
+      const k = seg(t, E.drop - 0.3, T.S2); floors[12].rotation.z = 0.06 * easeOut(seg(t, E.drop, E.drop + 0.5)) * (1 - seg(t, T.S2 - 0.5, T.S2));
+      floors[12].position.y = 12 * FH - 0.3 * easeOut(seg(t, E.drop, E.drop + 0.4)) * (1 - seg(t, T.S2 - 0.5, T.S2));
+      camPath(t, E.drop - 0.3, T.S2, v3(32, 30, 56), v3(26, 34, 48), v3(0, 38, 0), v3(0, 38.5, 0), 48, 44);
+      if (t > E.drop) { shake = Math.max(0, 1 - (t - E.drop) / 0.8); vignette = 0.55; flash = Math.max(0, 0.6 - (t - E.drop) * 2); }
+      tagAt(v3(0, 41, 7), 'ANDAR 12', '#ff3b2f', t, E.drop + 0.1);
+    }
+  }
+  // ---------- S2: concrete day ----------
+  if (S === 'S2') {
+    queue.forEach(q => q.truck.visible = true); site.visible = true; jorgeB.visible = true; slump.visible = true; hopper.visible = true;
+    slump.position.set(-5.6, 0.85, 3.9); slump.scale.set(1, 1, 1); jorgeB.position.set(-4.4, 0.2, 1.8); jorgeB.rotation.y = -0.75; pose(jorgeB, { look: 0.1 });
+    if (t < E.duro - 0.2) { camPath(t, T.S2, E.duro - 0.2, v3(-70, 11, 47), v3(-42, 8, 42), v3(-30, 2, 27), v3(-22, 2.5, 24), 55, 50);
+      tagAt(v3(-26, 5.4, 29.2), 'FILA DE CAMINHÕES', '#ffd23f', t, 8.2, E.deadline);
+      if (t >= E.trucks && t < E.clock + 1.2) hud.push({ kind: 'big', top: '12', sub: 'CAMINHÕES NA FILA', age: t - E.trucks, y: 250 });
+      if (t >= E.clock) { const mins = Math.min(58, 20 + (t - E.clock) * 14); hud.push({ kind: 'clock', text: `16:${String(Math.floor(mins)).padStart(2, '0')}`, sub: 'PRAZO 17:00', age: t - E.clock, y: t < E.clock + 1.2 ? 520 : 250 }); } }
+    else { const p0 = W3(-9.6, 1.5, 7.5), p1 = W3(-8.6, 1.4, 6.5), tg = W3(-5.6, 1.0, 3.9);
+      camPath(t, E.duro - 0.2, T.S3, p0, p1, tg, tg, 44, 40); tagAt(W3(-5.6, 2.9, 3.9), 'DURO DEMAIS', '#ff3b2f', t, E.duro);
+      hud.push({ kind: 'clock', text: '16:58', sub: 'PRAZO 17:00', age: 1, y: 250 }); }
+  }
+  // ---------- S3: water in the truck ----------
+  if (S === 'S3') {
+    site.visible = true; jorgeB.visible = true; slump.visible = true; hopper.visible = true; hose.visible = t > E.hose - 0.4;
+    const fl = easeOut(seg(t, E.molinho - 0.4, E.molinho + 0.8)); slump.scale.set(lerp(1, 1.85, fl), lerp(1, 0.2, fl), lerp(1, 1.85, fl)); slump.position.set(-5.6, 0.85 * slump.scale.y, 3.9);
+    jorgeB.position.set(-4.4, 0.2, 1.8); jorgeB.rotation.y = -0.75; pose(jorgeB, { wave: t > E.hose - 0.2 && t < E.pump + 1.0 ? t * 5 : 0, shock: t > E.molinho - 0.2 && t < E.pump ? 0.1 : 0 });
+    if (t > E.pump + 1.0) jorgeB.userData.p.armR.rotation.z = 2.7 + Math.sin(t * 9) * 0.3;
+    const wa = t >= E.water && t < E.pump + 0.4; stream.visible = wa; if (wa) { stream.position.set(-3.0, 4.8, 0.1); stream.scale.set(1, 2.2, 1); }
+    drops.forEach((d, i) => { d.visible = wa; if (wa) { const k = ((t * 1.7 + i / drops.length) % 1); d.position.set(-3.0 + Math.sin(i * 7.3) * 0.25, 5.8 - k * 3.0, 0.1 + Math.cos(i * 5.1) * 0.22); } });
+    const fo = t >= E.pump; flow.visible = fo; if (fo) { flow.position.set(-4.4, 1.7, -0.6); flow.scale.set(1, 1.7, 1); flow.rotation.z = Math.sin(t * 8) * 0.03; hero.drum.rotation.x = t * 4.2; }
+    if (t < E.molinho - 0.6) camPath(t, T.S3, E.molinho - 0.6, W3(-9.0, 3.4, 6.5), W3(-8.2, 3.7, 5.4), W3(-3.6, 3.4, 0.9), W3(-3.4, 3.8, 0.7), 50, 44);
+    else if (t < E.pump - 0.3) camPath(t, E.molinho - 0.6, E.pump - 0.3, W3(-9.3, 1.6, 7.0), W3(-8.4, 1.5, 6.0), W3(-5.6, 0.5, 3.9), W3(-5.6, 0.5, 3.9), 44, 40);
+    else camPath(t, E.pump - 0.3, T.S4, W3(-9.2, 2.6, 5.4), W3(-8.6, 2.4, 4.6), W3(-4.4, 1.4, 0.2), W3(-4.4, 1.5, 0.2), 50, 46);
+    tagAt(W3(-3.0, 6.6, 0.1), '+ ÁGUA', '#3fa7ff', t, E.water, E.molinho);
+    tagAt(W3(-5.6, 2.2, 3.9), 'MOLINHO', '#ff8a1f', t, E.molinho + 0.4, E.pump);
+    tagAt(W3(-4.4, 2.4, -0.6), 'A BOMBA ANDOU', '#3ddc84', t, E.pump);
+  }
+  // ---------- S4: inside the concrete ----------
+  if (S === 'S4') {
+    showMode('ins'); tagMinY = 560; sun.position.set(10, 40, -2000 + 30); sun.target.position.set(0, 0, -2000);
+    const ex = (t - E.extra); waters.forEach((w, i) => { const first = i < 14; const appear = first ? 1 : easeOut(clamp((ex - (i - 14) * 0.02) / 0.5)); const vanish = ease(clamp((t - E.holes - (i % 10) * 0.05) / 0.9));
+      w.visible = t < E.holes + 1.6; w.scale.setScalar(Math.max(0.0001, appear * (1 - vanish))); holes[i].scale.setScalar(Math.max(0.0001, vanish * (first ? 0.7 : 1))); });
+    const ang = lerp(0.2, 1.3, seg(t, T.S4, T.S5)); const c = v3(0, 2.2, -2000);
+    cam(v3(Math.sin(ang) * 10.5, 5.6, -2000 + Math.cos(ang) * 10.5), c, 44);
+    tagAt(v3(0, 5.0, -2000), 'DENTRO DO CONCRETO', '#9aa4b2', t, T.S4 + 0.1, E.extra);
+    tagAt(v3(2.6, 4.6, -2000), 'ÁGUA DE MAIS', '#3fa7ff', t, E.extra + 0.2, E.holes);
+    tagAt(v3(-2.6, 4.6, -2000), 'BURAQUINHOS (POROS)', '#ff8a1f', t, E.holes + 0.3);
+    hud.push({ kind: 'meter', water: t < E.extra ? 0.3 : lerp(0.3, 0.92, easeOut(seg(t, E.extra, E.extra + 0.7))), str: t < E.fraco ? 0.9 : lerp(0.9, 0.3, ease(seg(t, E.fraco, E.fraco + 1.3))), age: t - T.S4 });
+  }
+  // ---------- S5: the talk ----------
+  if (S === 'S5') {
+    teo.visible = true; jorgeC.visible = true; teo.position.set(-22.9, 0.2, 11.6); teo.rotation.y = Math.PI / 2 - 0.15; jorgeC.position.set(-20.7, 0.2, 11.6); jorgeC.rotation.y = -Math.PI / 2 + 0.15;
+    pose(teo, { look: 0.05 }); pose(jorgeC, { look: 0.5 + 0.05 * Math.sin(t * 3), shock: 0 });
+    camPath(t, T.S5, T.S6, v3(-22.6, 2.6, 24.0), v3(-21.9, 2.4, 21.2), v3(-21.8, 2.0, 11.6), v3(-21.8, 2.1, 11.6), 40, 37);
+    tagAt(v3(-20.7, 3.9, 11.6), 'SEU JORGE', '#ff8a1f', t, T.S5 + 0.2, E.quote);
+    if (t >= E.quote) bubble = { age: t - E.quote, text: '"Achei que um pouquinho não ia fazer diferença."' };
+  }
+  // ---------- S6: the proof ----------
+  if (S === 'S6') {
+    floorLight(); crackG.visible = true; setSeal(true); teo.visible = marta.visible = true; drill.visible = true;
+    teo.position.set(SX + 3.5, LY, SZ - 1.9); teo.rotation.y = -0.6; pose(teo, { look: 0.15 });
+    const kn = ease(seg(t, T.S6 + 0.4, T.S6 + 1.6)); marta.position.set(SX - 0.15, LY, SZ + 1.0); marta.rotation.y = Math.PI; pose(marta, { kneel: t > E.hammer - 1.4 ? ease(seg(t, E.hammer - 1.4, E.hammer - 0.4)) : 0, look: 0.1 });
+    // drill descends / core rises
+    const dd = ease(seg(t, E.core, E.core + 1.6)), up = ease(seg(t, E.core + 2.0, E.core + 2.8));
+    motor.position.set(0, lerp(2.1, 1.0, dd) + up * 0.7 * 0, -0.0); motor.position.y = lerp(2.2, 1.15, dd) * (1 - up) + up * 2.2;
+    bit.position.y = -0.7 - dd * 0.0; bit.visible = true;
+    core.visible = t > E.core + 2.0; core.position.set(SX + 2.0, LY - 0.4 + up * 1.4 - (t > E.core + 3.2 ? ease(seg(t, E.core + 3.2, E.core + 3.8)) * 1.35 : 0) + 0.45, SZ + 0.3 + (t > E.core + 3.2 ? ease(seg(t, E.core + 3.2, E.core + 3.8)) * 0.9 : 0)); core.rotation.z = t > E.core + 3.8 ? Math.PI / 2 : 0; if (t > E.core + 3.8) core.position.y = LY + 0.22;
+    hammer.visible = t > E.hammer - 0.9; const tapT = (t - E.hammer); const tap = tapT > 0 ? Math.max(0, Math.sin(tapT * 9)) * (tapT < 1.6 ? 1 : 0) : 0;
+    hammer.position.set(SX - 0.5, LY + 0.02 + (1 - tap) * 0.18, SZ + 0.55); hammer.rotation.set(0, 0, 0);
+    if (t < E.core - 0.4) camPath(t, T.S6, E.core - 0.4, v3(SX + 5.2, LY + 3.0, SZ + 5.0), v3(SX + 4.3, LY + 2.5, SZ + 4.2), v3(SX + 0.8, LY + 0.5, SZ + 0.2), v3(SX + 0.8, LY + 0.5, SZ + 0.2), 50, 46);
+    else if (t < E.hammer - 0.6) camPath(t, E.core - 0.4, E.hammer - 0.6, v3(SX + 6.6, LY + 2.6, SZ + 4.6), v3(SX + 5.8, LY + 2.2, SZ + 4.0), v3(SX + 1.8, LY + 1.0, SZ + 0.2), v3(SX + 1.8, LY + 1.1, SZ + 0.2), 46, 42);
+    else camPath(t, E.hammer - 0.6, T.S7, v3(SX - 4.2, LY + 1.6, SZ + 2.0), v3(SX - 3.6, LY + 1.3, SZ + 1.5), v3(SX - 0.3, LY + 0.35, SZ + 0.7), v3(SX - 0.3, LY + 0.35, SZ + 0.7), 48, 42);
+    tagAt(v3(SX + 2.0, LY + 2.6, SZ + 0.3), 'TESTEMUNHO (CILINDRO DA LAJE)', '#ffd23f', t, E.core + 0.4, E.hammer - 0.8);
+    tagAt(v3(SX - 0.5, LY + 1.2, SZ + 0.55), 'ESCLERÔMETRO', '#9aa4b2', t, E.hammer, E.result);
+    if (t >= E.result) { hud.push({ kind: 'verdict', age: t - E.result }); vignette = 0.35; }
+  }
+  // ---------- S7: reinforcement ----------
+  if (S === 'S7') {
+    floorLight(); crackG.visible = true; setSeal(true);
+    jackets.forEach((j, i) => { const k = easeOut(clamp((t - E.jacket - i * 0.28) / 0.7)); j.visible = k > 0; j.position.y = LY + (1 - k) * 4.0; });
+    strips.forEach((s, i) => { const k = ease(clamp((t - E.carbon - i * 0.18) / 0.9)); s.visible = k > 0; const len = s.userData.len * k; if (s.userData.horiz) { s.scale.x = Math.max(0.001, len / s.userData.len); s.position.x = -s.userData.len / 2 + len / 2 - 0.0 + 0; s.position.x = (-s.userData.len / 2) + len / 2; } else { s.scale.z = Math.max(0.001, len / s.userData.len); s.position.z = -4.3 - s.userData.len / 2 + len / 2 + 0; s.position.z = (-4.3 - s.userData.len / 2) + len / 2; } });
+    if (t < E.carbon - 0.4) camPath(t, T.S7, E.carbon - 0.4, v3(-8.2, LY + 2.8, 5.2), v3(-6.8, LY + 2.4, 3.8), v3(0, LY + 0.8, -4.0), v3(0, LY + 0.8, -4.0), 56, 52);
+    else camPath(t, E.carbon - 0.4, T.S8, v3(0.8, LY - 2.4, -0.2), v3(0.2, LY - 2.5, -1.0), v3(0, LY - 0.4, -4.2), v3(0, LY - 0.4, -4.4), 62, 58);
+    tagAt(v3(2, LY + 2.2, -4), 'ENCAMISAMENTO DE AÇO', '#9aa4b2', t, E.jacket + 0.3, E.carbon - 0.4);
+    tagAt(v3(0, LY - 0.9, -4.3), 'FIBRA DE CARBONO', '#1d1f24', t, E.carbon + 0.2);
+  }
+  // ---------- S8: load test ----------
+  if (S === 'S8') {
+    floorLight(); crackG.visible = true; teo.visible = marta.visible = true; teo.position.set(2.1, LY, -0.6); teo.rotation.y = Math.PI + 0.2; marta.position.set(-1.6, LY, -0.8); marta.rotation.y = Math.PI - 0.4; pose(teo, { look: 0.2 }); pose(marta, { look: 0.2 });
+    bagPiles.forEach((p, i) => { const k = easeOut(clamp((t - E.bags - i * 0.25) / 0.5)); p.visible = k > 0; p.position.y = LY + (1 - k) * 4; });
+    if (t < E.newSeal - 0.2) { setSeal(true); }
+    else { setSeal(false); seal.position.y = (1 - easeOut(seg(t, E.newSeal, E.newSeal + 0.5))) * 0.6; }
+    if (t < E.newSeal - 0.3) camPath(t, T.S8, E.newSeal - 0.3, v3(5.8, LY + 2.8, -0.2), v3(4.6, LY + 2.5, -1.0), v3(0, LY + 0.9, -5.0), v3(0, LY + 0.8, -5.0), 56, 52);
+    else camPath(t, E.newSeal - 0.3, T.S9, v3(SX + 1.7, LY + 1.3, SZ - 0.7), v3(SX + 1.2, LY + 1.0, SZ - 0.5), v3(SX, LY, SZ), v3(SX, LY, SZ), 44, 38);
+    tagAt(v3(0, LY + 3.0, -6), 'TESTE DE CARGA', '#ffd23f', t, E.bags + 0.4, E.newSeal - 0.3);
+    if (t >= E.newSeal) tagAt(v3(SX, LY + 0.45, SZ), 'SELO NOVO', '#ffffff', t, E.newSeal + 0.5, E.inteiro);
+    if (t >= E.bags + 1.0 && t < E.newSeal - 0.2) hud.push({ kind: 'load', age: t - (E.bags + 1.0) });
+    if (t >= E.inteiro) stamp = { age: t - E.inteiro };
+  }
+  // ---------- S9 + S10: sunset finale ----------
+  if (S === 'S9' || S === 'S10') {
+    setSky(0.5); sun.position.set(70, 24, 72); sun.target.position.set(0, ROOFY, 0); sun.intensity = 2.2;
+    glass.visible = true; roof.visible = true; stubs.visible = false; teo.visible = true; sticker.visible = true;
+    const gk = easeOut(seg(t, T.S9 - 0.1, T.S9 + 2.2)) * NF; panes.forEach(m => { m.visible = m.userData.i < gk; });
+    teo.position.set(2.2, ROOFY + 0.4, 2.6); teo.rotation.y = 0.7; pose(teo, { sip: t > 68.0 && t < 69.2 ? 1 : 0, look: -0.05 });
+    if (S === 'S9') { camPath(t, T.S9, T.S10, v3(8.0, ROOFY + 2.0, 9.2), v3(10.6, ROOFY + 2.6, 12.4), v3(2.4, ROOFY + 1.6, 2.6), v3(2.0, ROOFY + 1.9, 2.4), 42, 50);
+      if (t >= E.moral1) moral = { t, l1: 'Rachadura não é o problema.', l2: 'O problema é fingir que não viu.', k1: seg(t, E.moral1, E.moral1 + 0.35), k2: seg(t, E.moral2, E.moral2 + 0.35) }; }
+    if (S === 'S10') { const x = seg(t, T.S10, T.END); const ang = lerp(0.65, 1.0, x); cam(v3(Math.sin(ang) * 66, 22, Math.cos(ang) * 66), v3(0, 22, 0), 50); darken = 0.5 * clamp((t - T.S10) / 0.5); endCard = { t }; }
+  }
+  if (shake > 0) { camera.position.x += Math.sin(t * 90) * 0.05 * shake; camera.position.y += Math.cos(t * 77) * 0.05 * shake; }
+}
+
+// ======================= OVERLAY =======================
+let WORDS = [];
+const RED = '#ff4b3e', YEL = '#ffd23f', GRN = '#3ddc84', BLU = '#7cc4ff', ORG = '#ff8a1f';
+const HL = { jorge: YEL, balde: BLU, água: BLU, derrubou: RED, andar: YEL, concretagem: YEL, caminhões: YEL, relógio: YEL, cinco: YEL, duro: RED, bombear: YEL,
+  acelerada: ORG, mangueira: BLU, molinho: ORG, feliz: GRN, buraquinhos: RED, fraco: RED, negou: YEL, diferença: RED, cilindro: YEL, martelinho: YEL, dureza: YEL,
+  prova: GRN, verdade: GRN, demolir: RED, reforçar: GRN, aço: ORG, pilares: YEL, fibra: YEL, carbono: YEL, laje: YEL, sacos: YEL, areia: YEL, selo: YEL, inteiro: GRN,
+  torre: YEL, moral: YEL, rachadura: RED, problema: RED, fingir: RED, viu: RED, segue: YEL, série: YEL, calma: YEL, derruba: RED, 'doze': YEL, 'téo': YEL, marta: YEL };
+
+function drawVerdict(h) { const s = easeOut(clamp(h.age / 0.3)); ctx.save(); ctx.translate(W / 2, 690); ctx.scale(s, s); rr(-330, -120, 660, 240, 34); ctx.fillStyle = 'rgba(20,24,36,0.92)'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#ff3b2f'; ctx.stroke();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '800 32px Inter'; ctx.fillStyle = '#e9edf5'; ctx.fillText('RESISTÊNCIA DO CONCRETO', 0, -64);
+  ctx.font = '80px Lilita'; ctx.fillStyle = '#ff3b2f'; ctx.fillText('ABAIXO DO', 0, -4); ctx.fillText('PROJETO', 0, 64); ctx.restore(); }
+function drawMeter(h) { const s = easeOut(clamp(h.age / 0.3)); ctx.save(); ctx.translate(W / 2, 330); ctx.scale(s, s); rr(-360, -150, 720, 300, 34); ctx.fillStyle = 'rgba(20,24,36,0.9)'; ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = '#ffd23f'; ctx.stroke();
+  const bar = (y, label, v, col) => { ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.font = '800 32px Inter'; ctx.fillStyle = '#e9edf5'; ctx.fillText(label, -320, y - 38); rr(-320, y - 12, 640, 40, 20); ctx.fillStyle = '#2f3648'; ctx.fill(); rr(-320, y - 12, Math.max(40, 640 * v), 40, 20); ctx.fillStyle = col; ctx.fill(); };
+  bar(-55, 'ÁGUA NA MISTURA', h.water, '#3fa7ff'); bar(70, 'RESISTÊNCIA', h.str, h.str > 0.6 ? '#3ddc84' : '#ff3b2f'); ctx.restore(); }
+function drawLoad(h) { const s = easeOut(clamp(h.age / 0.3)); ctx.save(); ctx.translate(W / 2, 690); ctx.scale(s, s); rr(-300, -110, 600, 220, 34); ctx.fillStyle = 'rgba(20,24,36,0.9)'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#3ddc84'; ctx.stroke();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '800 30px Inter'; ctx.fillStyle = '#e9edf5'; ctx.fillText('MOVIMENTO DA LAJE', 0, -62); ctx.font = '96px Lilita'; ctx.fillStyle = '#3ddc84'; ctx.fillText('ESTÁVEL', 0, 20); ctx.restore(); }
+function drawStamp(st) { const a = clamp(st.age / 0.15); const sc = lerp(2.0, 1, easeOut(a)); ctx.save(); ctx.translate(W / 2, 700); ctx.rotate(-0.12); ctx.scale(sc, sc); ctx.globalAlpha = a; ctx.font = '150px Lilita'; const tw = ctx.measureText('INTEIRO').width;
+  rr(-tw / 2 - 40, -100, tw + 80, 200, 20); ctx.fillStyle = 'rgba(255,255,255,0.93)'; ctx.fill(); ctx.lineWidth = 14; ctx.strokeStyle = '#2fbf5a'; ctx.stroke(); ctx.fillStyle = '#2fbf5a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('INTEIRO', 0, 8); ctx.restore(); }
+function drawBubble(b) { const s = easeOut(clamp(b.age / 0.25)); ctx.save(); ctx.translate(W / 2, 560); ctx.scale(s, s); const w = 900, h = 230; ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 24; rr(-w / 2, -h / 2, w, h, 40); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.shadowColor = 'transparent';
+  ctx.beginPath(); ctx.moveTo(150, h / 2 - 2); ctx.lineTo(210, h / 2 + 60); ctx.lineTo(240, h / 2 - 2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#1b2030'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '800 54px Inter'; ctx.fillText('"Achei que um pouquinho', 0, -36); ctx.fillText('não ia fazer diferença."', 0, 38); ctx.restore(); }
+function drawOverlay(t) {
+  ctx.clearRect(0, 0, W, H); ctx.drawImage(glCanvas, 0, 0, W, H);
+  if (vignette > 0) { const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.25, W / 2, H / 2, H * 0.75); g.addColorStop(0, 'rgba(120,0,0,0)'); g.addColorStop(1, `rgba(120,0,0,${vignette})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+  if (darken > 0) { ctx.fillStyle = `rgba(8,10,20,${darken})`; ctx.fillRect(0, 0, W, H); }
+  if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash})`; ctx.fillRect(0, 0, W, H); }
+  for (const tg of tags) { const p = project(tg.world); if (p.behind) continue; pill(clamp(p.x, 330, W - 330), clamp(p.y, tagMinY, 1130), tg.text, tg.dot, tg.age); }
+  for (const h of hud) { const s = easeOut(clamp(h.age / 0.25));
+    if (h.kind === 'big') { ctx.save(); ctx.translate(W / 2, h.y); ctx.scale(s, s); outlined(h.top, 0, 0, 190, '#ffffff'); outlined(h.sub, 0, 118, 56, YEL, '#1b2030', 10); ctx.restore(); }
+    if (h.kind === 'clock') { ctx.save(); ctx.translate(W / 2, h.y); ctx.scale(s, s); rr(-250, -95, 500, 190, 34); ctx.fillStyle = 'rgba(20,24,36,0.88)'; ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = '#ff8a1f'; ctx.stroke(); ctx.font = '112px Lilita'; ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(h.text, 0, -16); ctx.font = '800 34px Inter'; ctx.fillStyle = '#ff8a1f'; ctx.fillText(h.sub, 0, 62); ctx.restore(); }
+    if (h.kind === 'meter') drawMeter(h); if (h.kind === 'verdict') drawVerdict(h); if (h.kind === 'load') drawLoad(h); }
+  if (bubble) drawBubble(bubble); if (stamp) drawStamp(stamp);
+  if (moral) { ctx.save(); const k1 = easeOut(moral.k1), k2 = easeOut(moral.k2); rr(70, 330, W - 140, 590, 44); ctx.fillStyle = 'rgba(14,18,30,0.55)'; ctx.fill();
+    ctx.globalAlpha = k1; ctx.translate(0, (1 - k1) * 30); outlined('Rachadura não é', W / 2, 450, 104, '#ffffff'); outlined('o problema.', W / 2, 565, 104, '#ffffff'); ctx.restore();
+    ctx.save(); ctx.globalAlpha = k2; ctx.translate(0, (1 - k2) * 30); outlined('O problema é fingir', W / 2, 695, 92, '#ffd23f'); outlined('que não viu.', W / 2, 800, 92, '#ff4b3e'); ctx.restore(); }
+  if (endCard) { const a = endCard.t; const k1 = easeOut(seg(a, 75.2, 75.5)), k2 = easeOut(seg(a, 76.2, 76.5)), k3 = seg(a, 77.4, 77.8);
+    ctx.save(); ctx.translate(W / 2, 640); ctx.scale(k1, k1); outlined('FIM!', 0, 0, 230, '#ffffff'); ctx.restore();
+    ctx.save(); ctx.globalAlpha = k2; outlined('A RACHADURA DO ANDAR 12', W / 2, 840, 78, '#ffd23f'); ctx.restore();
+    ctx.save(); ctx.globalAlpha = k3; ctx.font = '800 44px Inter'; ctx.fillStyle = '#e9edf5'; ctx.textAlign = 'center'; ctx.fillText('SEGUE PRA VER O PRÓXIMO PRÉDIO', W / 2, 1010); ctx.restore(); }
+  if (!endCard && !moral) {
+    let cur = null; for (const w of WORDS) { if (t >= w.start - 0.03 && t < w.end + 0.45) cur = w; }
+    if (cur) { const nx = WORDS[WORDS.indexOf(cur) + 1]; if (nx && t >= nx.start - 0.03) cur = nx;
+      const txt = clean(cur.text).replace(/["“”]/g, ''); if (txt) { const key = txt.toLowerCase(); const disp = txt.charAt(0).toUpperCase() + txt.slice(1);
+        const age = t - cur.start; const sc = age < 0.12 ? lerp(1.28, 1, easeOut(clamp(age / 0.12))) : 1;
+        let size = 124; ctx.font = `${size}px Lilita`; while (ctx.measureText(disp).width > W - 220) { size -= 6; ctx.font = `${size}px Lilita`; }
+        ctx.save(); ctx.translate(W / 2, 1290); ctx.scale(sc, sc); outlined(disp, 0, 0, size, HL[key] || '#ffffff'); ctx.restore(); } }
+  }
+  if (moral || endCard) { /* captions hidden over cards */ }
+}
+
+window.setup = async (words, warpPts) => { setWarp(warpPts || null); WORDS = words.filter(w => !/[\[\]]/.test(w.text)); await document.fonts.load('124px Lilita'); await document.fonts.load('800 34px Inter'); return true; };
+window.renderFrame = (t) => { const tt = warp(t); update(tt); sky.position.copy(camera.position); renderer.render(scene, camera); drawOverlay(t); tNow = tt; return document.getElementById('out').toDataURL('image/jpeg', 0.93); };
+window.ready = true;
+</script>
+</body>
+</html>
