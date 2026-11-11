@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 P=${1:-p1}
 DUR=$(python3 -c "import json;print(json.load(open('$P/meta.json'))['duration'])")
-SW=$(python3 -c "import json;print(json.load(open('$P/meta.json'))['music_switch'])")
+SW=$(python3 -c "import json;print(json.load(open('$P/meta.json')).get('music_switch',30))")
 FADE1=$(python3 -c "print($SW-0.45)")
 SUSP_END=$(python3 -c "print(48+$DUR-$SW+0.2)")
 SUSP_FADE=$(python3 -c "print($DUR-$SW-2.5)")
@@ -14,19 +14,23 @@ DELAY=$(python3 -c "print(int($SW*1000))")
 
 NAR=assets/narracao-$P.mp3; TARGET=-14
 MUS=assets/musica-$P.mp3; [ -f "$MUS" ] || MUS=assets/musica-p1.mp3
+# A prebuilt music bed (build/$P-bed.wav) replaces the marimba + suspense pair.
+MAR=build/$P-marimba.wav
+BEDCHAIN="[1:a]aresample=48000,volume=-15.7dB,afade=t=out:st=${FADE1}:d=0.7[m1];
+    [2:a]aresample=48000,atrim=start=48:end=${SUSP_END},asetpts=PTS-STARTPTS,volume=10.5dB,afade=t=in:d=0.3,afade=t=out:st=${SUSP_FADE}:d=2.5,adelay=${DELAY}|${DELAY}[m2];
+    [m1][m2]amix=inputs=2:normalize=0:duration=longest[bed];"
+if [ -f build/$P-bed.wav ]; then MAR=build/$P-bed.wav; BEDCHAIN="[1:a]aresample=48000[bed]; [2:a]anullsink;"; fi
 if [ ! -f "$NAR" ]; then NAR=build/$P-silence.wav; TARGET=-17; ffmpeg -y -v error -f lavfi -i anullsrc=r=48000:cl=stereo -t "$DUR" "$NAR"; echo "(sem narração: prévia)"; fi
 
 ffmpeg -y -v error \
   -i "$NAR" \
-  -i build/$P-marimba.wav \
+  -i "$MAR" \
   -i "$MUS" \
   -i build/$P-sfx.wav \
   -i build/$P-silent.mp4 \
   -filter_complex "
     [0:a]aresample=48000,volume=${NARGAIN}dB,highpass=f=70,acompressor=threshold=0.1:ratio=3:attack=5:release=120:makeup=1.5,apad=whole_dur=${DUR},asplit=2[nar][sc];
-    [1:a]aresample=48000,volume=-15.7dB,afade=t=out:st=${FADE1}:d=0.7[m1];
-    [2:a]aresample=48000,atrim=start=48:end=${SUSP_END},asetpts=PTS-STARTPTS,volume=10.5dB,afade=t=in:d=0.3,afade=t=out:st=${SUSP_FADE}:d=2.5,adelay=${DELAY}|${DELAY}[m2];
-    [m1][m2]amix=inputs=2:normalize=0:duration=longest[bed];
+    ${BEDCHAIN}
     [bed][sc]sidechaincompress=threshold=0.04:ratio=5:attack=25:release=400:makeup=1[duck];
     [3:a]aresample=48000,volume=-5dB[fx];
     [nar][duck][fx]amix=inputs=3:normalize=0:duration=first,atrim=0:${DUR},loudnorm=I=${TARGET}:TP=-1.5:LRA=11[out]" \
