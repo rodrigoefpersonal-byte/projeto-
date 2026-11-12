@@ -1,0 +1,212 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: 'Bebas'; src: url('/assets/fonts/BebasNeue.woff2') format('woff2'); }
+  html, body { margin: 0; background: #000; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="out" width="1080" height="1920"></canvas>
+<script>
+// "O 402" - Part 1: dark flat 2D suspense, drawn straight on a canvas. Times are script time (warped to the narration).
+const W = 1080, H = 1920;
+const cv = document.getElementById('out'), ctx = cv.getContext('2d');
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+const lerp = (a, b, x) => a + (b - a) * x;
+const hash = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+const T = { S1: 0.3, S2: 8.2, S3: 15.0, S4: 21.4, S5: 27.8, S6: 35.3, S7: 42.1, S8: 49.6, END: 54.5 };
+function sceneAt(t) { let c = 'S1'; for (const s of ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8']) if (t >= T[s]) c = s; return c; }
+const RED = '#ff4b3e', YEL = '#ffd23f', COLD = '#7fa7ff';
+
+// ---------- helpers ----------
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function box(x, y, w, h, c, r = 0) { if (r) { rr(x, y, w, h, r); } else { ctx.beginPath(); ctx.rect(x, y, w, h); } ctx.fillStyle = c; ctx.fill(); }
+function glow(x, y, r, color, a) { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = g; ctx.fillRect(x - r, y - r, 2 * r, 2 * r); ctx.restore(); }
+function circle(x, y, r, c) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill(); }
+function txt(s, x, y, size, fill, font = 'Bebas', align = 'center', stroke = null, sw = 0) {
+  ctx.font = `${size}px ${font}`; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  if (stroke) { ctx.lineWidth = sw || size * 0.12; ctx.strokeStyle = stroke; ctx.strokeText(s, x, y); }
+  ctx.fillStyle = fill; ctx.fillText(s, x, y);
+}
+function pill(x, y, text, dot, age) {
+  const s = easeOut(clamp(age / 0.2)); if (s <= 0) return;
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.font = '800 38px Inter'; const tw = ctx.measureText(text).width; const w = tw + 84, h = 64;
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 14; rr(-w / 2, -h / 2, w, h, h / 2); ctx.fillStyle = '#e9edf5'; ctx.fill(); ctx.shadowColor = 'transparent';
+  circle(-w / 2 + 32, 0, 12, dot); ctx.fillStyle = '#10131c'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(text, -w / 2 + 56, 2); ctx.restore();
+}
+// grain tiles
+const tiles = []; for (let k = 0; k < 4; k++) { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); const d = g.createImageData(256, 256);
+  for (let i = 0; i < d.data.length; i += 4) { const v = hash(i * 0.37 + k * 999) * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = hash(i + k) * 16; } g.putImageData(d, 0, 0); tiles.push(c.getContext('2d').canvas); }
+function finish(t, vig = 0.75, flick = true) {
+  const pat = ctx.createPattern(tiles[Math.floor(t * 14) % 4], 'repeat'); ctx.save(); ctx.translate(hash(Math.floor(t * 14)) * 256, hash(Math.floor(t * 14) + 5) * 256); ctx.fillStyle = pat; ctx.fillRect(-256, -256, W + 512, H + 512); ctx.restore();
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.78); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${vig})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  if (flick) { const f = hash(Math.floor(t * 9) + 3) > 0.93 ? 0.16 : 0; if (f) { ctx.fillStyle = `rgba(0,0,0,${f})`; ctx.fillRect(0, 0, W, H); } }
+}
+function dust(n, x0, y0, w, h, a, seed, size = 3) { for (let i = 0; i < n; i++) { ctx.globalAlpha = a * (0.4 + hash(seed + i * 3.1) * 0.6); ctx.fillStyle = '#c9ccd6'; const s = 1 + hash(seed + i * 7.7) * size; ctx.fillRect(x0 + hash(seed + i) * w, y0 + hash(seed + i * 2.3) * h, s, s); } ctx.globalAlpha = 1; }
+
+// ---------- S1: two floors, steps above the bed ----------
+const STEP1 = [1.5, 2.4, 3.3, 4.2, 5.1, 6.0];
+function sceneS1(u) {
+  box(0, 0, W, H, '#05070e');
+  const z = 1 + 0.09 * u / 7.6; ctx.save(); ctx.translate(540, 960); ctx.scale(z, z); ctx.translate(-540, -960);
+  const imp = STEP1.reduce((m, ts) => u > ts ? Math.max(m, Math.exp(-(u - ts) * 7)) : m, 0);
+  // top room (empty)
+  box(70, 330, 940, 530, '#0f1730'); box(70, 330, 940, 14, '#0a1022');
+  box(120, 400, 190, 250, '#1b2c55'); box(128, 408, 174, 234, '#2c4a8a'); ctx.fillStyle = '#0f1730'; ctx.fillRect(212, 408, 6, 234); ctx.fillRect(128, 520, 174, 6);
+  const sh = ctx.createLinearGradient(130, 640, 520, 860); sh.addColorStop(0, 'rgba(127,167,255,0.28)'); sh.addColorStop(1, 'rgba(127,167,255,0)');
+  ctx.fillStyle = sh; ctx.beginPath(); ctx.moveTo(128, 640); ctx.lineTo(302, 640); ctx.lineTo(620, 860); ctx.lineTo(300, 860); ctx.closePath(); ctx.fill();
+  txt('402', 880, 400, 90, 'rgba(127,167,255,0.35)'); txt('VAZIO', 880, 470, 52, 'rgba(255,255,255,0.22)');
+  STEP1.forEach((ts, k) => { if (u < ts) return; const a = Math.max(0.25, 1 - (u - ts) * 0.45); const x = 200 + k * 120, y = 835 + (k % 2 ? 12 : -4);
+    glow(x, y, 54, COLD, 0.5 * a); ctx.save(); ctx.translate(x, y); ctx.rotate(0.15); ctx.globalAlpha = a; ctx.fillStyle = '#cfe0ff'; ctx.beginPath(); ctx.ellipse(0, 0, 14, 28, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(-2, -34, 10, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); });
+  // slab
+  box(70, 860, 940, 34, '#04060d'); for (let i = 0; i < 6; i++) { ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(90 + i * 150, 868, 70, 3); }
+  // bottom room
+  ctx.save(); ctx.translate(0, imp * 5 * Math.sin(u * 60));
+  box(70, 894, 940, 530, '#131c38'); box(70, 1424, 940, 20, '#080b16');
+  box(112, 960, 170, 270, '#0b122a'); box(122, 970, 150, 250, '#1b2c55'); box(190, 970, 14, 250, '#0b122a');
+  const lampA = 0.09 * imp * Math.sin(u * 14); ctx.save(); ctx.translate(540, 894); ctx.rotate(lampA); ctx.strokeStyle = '#2a3558'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 150); ctx.stroke(); box(-34, 150, 68, 26, '#2a3558', 10); ctx.restore();
+  box(420, 1320, 80, 104, '#0d142c'); box(436, 1300, 48, 22, '#05070e', 4); circle(460, 1312, 5, Math.floor(u * 2) % 2 ? RED : '#4a1612');
+  box(560, 1330, 440, 94, '#1d2748', 12); box(962, 1180, 34, 250, '#0d142c', 8);
+  ctx.fillStyle = '#26335c'; ctx.beginPath(); ctx.ellipse(740, 1318, 220, 62, 0, Math.PI, 0); ctx.fill(); box(520, 1318, 480, 30, '#26335c');
+  circle(900, 1285, 46, '#a68a74'); ctx.fillStyle = '#1a1411'; ctx.beginPath(); ctx.arc(900, 1272, 48, Math.PI, Math.PI * 2); ctx.fill(); box(852, 1270, 18, 26, '#1a1411');
+  const blink = hash(Math.floor(u * 1.7)) > 0.88; for (const ex of [885, 913]) { circle(ex, 1290, blink ? 1 : 8, '#e8eefc'); if (!blink) circle(ex + 2, 1291 + imp * 2, 3.5, '#10131c'); }
+  ctx.restore();
+  // dust falling from the ceiling slab
+  STEP1.forEach((ts, k) => { if (u < ts) return; const d = u - ts; for (let i = 0; i < 9; i++) { const x = 150 + hash(k * 17 + i) * 780, y = 900 + d * (120 + hash(k * 5 + i) * 140), a = Math.exp(-d * 1.1); if (y > 1400) continue; ctx.globalAlpha = a * 0.8; ctx.fillStyle = '#c9ccd6'; ctx.fillRect(x, y, 2.5, 2.5); } ctx.globalAlpha = 1; });
+  ctx.restore();
+  // clock
+  const g = hash(Math.floor(u * 20)) > 0.9 ? (hash(Math.floor(u * 20) + 9) - 0.5) * 16 : 0;
+  txt('03:07', 540 + g, 190, 250, RED, 'Bebas', 'center', '#2a0705', 14); txt('MADRUGADA', 540, 310, 46, 'rgba(255,255,255,0.6)', 'Bebas');
+  if (u > 6.6) { ctx.fillStyle = `rgba(0,0,0,${seg(u, 6.6, 7.6) * 0.55})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- S2: the 402 door ----------
+function doorDraw(cx, cy, scale, u, dusty) {
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
+  box(-230, -560, 460, 1120, '#1a1418', 10); box(-205, -535, 410, 1090, '#2d2024', 8);
+  for (const y of [-440, 60]) { box(-170, y, 340, 400, '#241a1d', 6); ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 3; ctx.strokeRect(-170, y, 340, 400); }
+  box(-60, -210, 120, 56, '#b89a4a', 6); txt('402', 0, -182, 54, '#3a2d0c');
+  if (dusty) { ctx.restore(); dust(160, cx - 205 * scale, cy - 535 * scale, 410 * scale, 1090 * scale, 0.5, 31, 3); ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale); }
+  ctx.strokeStyle = 'rgba(220,230,255,0.4)'; ctx.lineWidth = 2; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.moveTo(-205, -535); ctx.lineTo(-205 + i * 56, -535 + (5 - i) * 42 + 40); ctx.stroke(); }
+  for (let r = 1; r <= 4; r++) { ctx.beginPath(); ctx.arc(-205, -535, r * 62, 0, Math.PI / 2); ctx.stroke(); }
+  ctx.restore();
+}
+function sceneS2(u, t) {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#141a30'); g.addColorStop(1, '#070a14'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  box(0, 1500, W, 420, '#080b14'); box(0, 1480, W, 22, '#0c101c');
+  const fl = hash(Math.floor(u * 8)) > 0.9 ? 0.5 : 1; glow(540, 120, 760, '#ffd98a', 0.32 * fl); box(536, 0, 8, 90, '#1a1a22'); circle(540, 104, 22, '#ffe7a6');
+  doorDraw(540, 960, 1 + 0.12 * u / 5.8, u, true);
+  pill(540, 360, 'FECHADO HÁ ANOS', RED, u - 3.4);
+}
+
+// ---------- S3: pipe? then the recording ----------
+function sceneS3(u) {
+  box(0, 0, W, H, '#060912');
+  if (u < 2.6) {
+    ctx.strokeStyle = '#4b5b82'; ctx.lineWidth = 46; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(220, 300); ctx.lineTo(220, 900); ctx.lineTo(560, 900); ctx.lineTo(560, 1400); ctx.lineTo(880, 1400); ctx.stroke();
+    ctx.strokeStyle = '#6d7fa8'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(206, 300); ctx.lineTo(206, 900); ctx.lineTo(546, 900); ctx.lineTo(546, 1400); ctx.lineTo(870, 1400); ctx.stroke();
+    txt('É CANO?', 540, 560, 190, '#ffffff'); if (u > 1.5) { ctx.strokeStyle = RED; ctx.lineWidth = 26; ctx.lineCap = 'round'; const k = easeOut(seg(u, 1.5, 1.9)); ctx.beginPath(); ctx.moveTo(300, 380); ctx.lineTo(lerp(300, 780, k), lerp(380, 1060, k)); ctx.stroke(); ctx.beginPath(); ctx.moveTo(780, 380); ctx.lineTo(lerp(780, 300, k), lerp(380, 1060, k)); ctx.stroke(); ctx.lineCap = 'butt'; }
+    return;
+  }
+  const v = u - 2.6, py = lerp(220, 0, easeOut(seg(v, 0, 0.7)));
+  ctx.save(); ctx.translate(0, py); glow(540, 800, 700, '#1c2d58', 0.5);
+  box(280, 300, 520, 1000, '#0d111c', 70); rr(280, 300, 520, 1000, 70); ctx.strokeStyle = '#2a3350'; ctx.lineWidth = 6; ctx.stroke(); box(304, 330, 472, 940, '#080b15', 48);
+  txt('GRAVADOR DE VOZ', 540, 400, 44, '#8fa0c8'); circle(400, 520, 16 * (0.7 + 0.3 * Math.sin(v * 7)), RED); txt('REC', 470, 520, 70, '#ffffff', 'Bebas', 'left');
+  const tt = 3 * 3600 + 7 * 60 + Math.floor(41 + v * 1.0); txt(`0${Math.floor(tt / 3600)}:${String(Math.floor(tt / 60) % 60).padStart(2, '0')}:${String(tt % 60).padStart(2, '0')}`, 540, 630, 120, '#ffffff');
+  for (let i = 0; i < 38; i++) { const x = 340 + i * 10.6, spike = Math.max(0, Math.sin(v * 3.2 - i * 0.16)) ** 12, h = 6 + hash(i * 3.7 + Math.floor(v * 12)) * 26 + spike * 220; box(x, 900 - h / 2, 6, h, spike > 0.2 ? RED : '#6fa3ff', 3); }
+  txt('NOITE 9 · 03:07', 540, 1140, 44, 'rgba(255,255,255,0.55)'); ctx.restore();
+}
+
+// ---------- S4: 14 steps on the floor plan ----------
+const PATH = [[200, 1330], [200, 1000], [520, 1000], [520, 700], [800, 700]];
+function pathAt(f) { const segs = []; let tot = 0; for (let i = 0; i < PATH.length - 1; i++) { const d = Math.hypot(PATH[i + 1][0] - PATH[i][0], PATH[i + 1][1] - PATH[i][1]); segs.push(d); tot += d; } let d = f * tot; for (let i = 0; i < segs.length; i++) { if (d <= segs[i]) { const k = d / segs[i]; return [lerp(PATH[i][0], PATH[i + 1][0], k), lerp(PATH[i][1], PATH[i + 1][1], k)]; } d -= segs[i]; } return PATH[PATH.length - 1]; }
+function sceneS4(u) {
+  box(0, 0, W, H, '#06132a'); ctx.strokeStyle = 'rgba(111,163,255,0.1)'; ctx.lineWidth = 2; for (let x = 0; x <= W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); } for (let y = 0; y <= H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.strokeStyle = '#6fa3ff'; ctx.lineWidth = 9; ctx.strokeRect(110, 430, 860, 940); ctx.beginPath(); ctx.moveTo(560, 430); ctx.lineTo(560, 600); ctx.moveTo(560, 800); ctx.lineTo(560, 900); ctx.lineTo(970, 900); ctx.moveTo(110, 900); ctx.lineTo(420, 900); ctx.stroke();
+  ctx.fillStyle = '#06132a'; ctx.fillRect(130, 1366, 140, 12); txt('PORTA', 200, 1415, 44, '#6fa3ff'); txt('QUARTO', 770, 520, 52, 'rgba(111,163,255,0.7)'); txt('SALA', 320, 640, 52, 'rgba(111,163,255,0.45)');
+  txt('402', 540, 330, 90, 'rgba(111,163,255,0.5)');
+  const n = clamp(Math.floor((u - 0.6) / 0.27) + 1, 0, 14);
+  for (let k = 0; k < n; k++) { const [x, y] = pathAt((k + 0.5) / 14); const age = u - (0.6 + k * 0.27); glow(x, y, 46, '#9cc0ff', 0.5 * (1 - clamp(age / 1.6) * 0.6)); circle(x, y, 13, k === n - 1 ? '#ffffff' : '#bcd4ff'); }
+  ctx.strokeStyle = 'rgba(188,212,255,0.35)'; ctx.setLineDash([14, 14]); ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(PATH[0][0], PATH[0][1]); for (let i = 1; i < PATH.length; i++) ctx.lineTo(PATH[i][0], PATH[i][1]); ctx.stroke(); ctx.setLineDash([]);
+  txt(String(n).padStart(2, '0') + ' / 14', 540, 190, 230, n === 14 ? RED : '#ffffff'); if (n === 14 && u > 0.6 + 14 * 0.27 + 0.2) pill(540, 1700, 'NEM UM A MAIS', RED, u - (0.6 + 14 * 0.27 + 0.2));
+}
+
+// ---------- S5: the silence ----------
+function sceneS5(u) {
+  box(0, 0, W, H, '#05070f'); glow(540, 900, 700, '#111c3d', 0.55);
+  ctx.strokeStyle = '#8fa0c8'; ctx.lineWidth = 26; ctx.beginPath(); ctx.arc(540, 560, 150, Math.PI, 0); ctx.stroke(); box(360, 560, 50, 120, '#8fa0c8', 20); box(670, 560, 50, 120, '#8fa0c8', 20);
+  const Ud = 6.4, px = 60 + 960 * clamp(u / Ud);
+  for (let k = 0; k < 14; k++) { const x = 70 + k * 40, h = 90 + hash(k * 3.3) * 120; const played = x < px; box(x - 5, 1000 - h, 10, h * 2, played ? '#cfe0ff' : 'rgba(111,163,255,0.4)', 5); }
+  const sil = px > 650; ctx.fillStyle = `rgba(255,75,62,${sil ? 0.1 + 0.08 * Math.sin(u * 8) : 0})`; ctx.fillRect(640, 880, 380, 240);
+  box(60, 996, 960, 8, sil ? 'rgba(255,75,62,0.7)' : 'rgba(255,255,255,0.25)'); ctx.fillStyle = '#fff'; ctx.fillRect(px - 3, 800, 6, 400);
+  if (sil) { const sec = Math.floor((px - 650) / 12); txt('SILÊNCIO', 540, 1210, 180, RED); txt(`00:${String(sec).padStart(2, '0')}`, 540, 1330, 80, 'rgba(255,255,255,0.7)'); }
+  else txt('ÚLTIMO PASSO…', 540, 1220, 110, 'rgba(255,255,255,0.5)');
+}
+
+// ---------- S6: the clean doorknob ----------
+function sceneS6(u) {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0f1426'); g.addColorStop(1, '#05070e'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const z = 1 + 0.1 * u / 5.8; ctx.save(); ctx.translate(560, 1000); ctx.scale(z, z); ctx.translate(-560, -1000);
+  box(80, 160, 920, 1600, '#2a1d21', 14); for (const y of [220, 960]) { box(160, y, 760, 640, '#221719', 10); ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 4; ctx.strokeRect(160, y, 760, 640); }
+  ctx.restore(); dust(700, 100, 180, 880, 1560, 0.55, 77, 4);
+  const kz = z; const kx = 560 + (800 - 560) * kz, ky = 1000 + (1000 - 1000) * kz;
+  ctx.save(); ctx.translate(kx, ky); ctx.scale(kz, kz); const pulse = 0.7 + 0.3 * Math.sin(u * 5);
+  glow(0, 0, 220, '#ffe9a8', 0.4 * pulse); circle(0, 0, 112, 'rgba(255,255,255,0.12)'); circle(0, 0, 92, '#1b1416'); circle(0, 0, 64, '#e6c565'); circle(-16, -18, 22, 'rgba(255,255,255,0.65)'); box(-250, -22, 190, 44, '#d1ae4d', 22); ctx.restore();
+  const hp = easeOut(seg(u, 2.2, 5.0)); if (hp > 0) { ctx.save(); ctx.translate(lerp(-120, 560, hp) + (kx - 800), 1010); ctx.fillStyle = '#04050a'; ctx.beginPath(); ctx.ellipse(0, 0, 100, 76, 0, 0, Math.PI * 2); ctx.fill(); for (let i = 0; i < 4; i++) { rr(60, -62 + i * 34, 120, 28, 14); ctx.fill(); } rr(-300, -50, 330, 100, 40); ctx.fill(); ctx.restore(); }
+  pill(560, 560, 'MAÇANETA LIMPA', YEL, u - 1.6); pill(540, 380, 'PORTA CHEIA DE POEIRA', RED, u - 0.3);
+}
+
+// ---------- S7: the door opens ----------
+function sceneS7(u) {
+  box(0, 0, W, H, '#020308'); const op = ease(seg(u, 0.6, 4.4));
+  const x0 = 250, x1 = 830, top = 260, bot = 1660;
+  const g = ctx.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, '#000'); g.addColorStop(0.5, `rgba(60,90,160,${0.2 + 0.5 * op})`); g.addColorStop(1, '#000'); ctx.fillStyle = g; ctx.fillRect(x0, top, x1 - x0, bot - top);
+  box(x0 - 30, top - 30, x1 - x0 + 60, 30, '#1a1418'); box(x0 - 30, top, 30, bot - top, '#1a1418'); box(x1, top, 30, bot - top, '#1a1418');
+  const edge = lerp(x1, x0 + 60, op), off = op * 120; ctx.fillStyle = '#2d2024'; ctx.beginPath(); ctx.moveTo(x0, top); ctx.lineTo(edge, top + off); ctx.lineTo(edge, bot - off); ctx.lineTo(x0, bot); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 3; ctx.stroke();
+  if (u > 3.4) { const a = seg(u, 3.4, 4.0); for (let r = 0; r < 5; r++) { const rad = ((u * 140 + r * 120) % 560) + 40; ctx.strokeStyle = `rgba(255,75,62,${a * 0.6 * (1 - rad / 620)})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(540, 960, rad, -0.6, 0.6); ctx.stroke(); ctx.beginPath(); ctx.arc(540, 960, rad, Math.PI - 0.6, Math.PI + 0.6); ctx.stroke(); }
+    const j = hash(Math.floor(u * 24)) * 6 - 3; txt('...', 540 + j, 960, 260, `rgba(255,75,62,${0.5 + 0.5 * Math.sin(u * 12)})`); }
+  if (u > 5.9) { ctx.fillStyle = `rgba(0,0,0,${seg(u, 5.9, 6.4)})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- S8: end card ----------
+function sceneS8(u) {
+  box(0, 0, W, H, '#020308'); glow(540, 960, 760, '#2a0a0a', 0.5);
+  const k1 = easeOut(seg(u, 0, 0.35)), k2 = easeOut(seg(u, 0.9, 1.3)), k3 = seg(u, 2.2, 2.6);
+  ctx.save(); ctx.translate(540, 760); ctx.scale(k1, k1); txt('PARTE 2', 0, 0, 340, '#ffffff', 'Bebas', 'center', '#000', 10); ctx.restore();
+  ctx.globalAlpha = k2; txt('O QUE ESTAVA', 540, 1010, 130, RED); txt('LÁ DENTRO?', 540, 1140, 130, RED); ctx.globalAlpha = k3; txt('SEGUE PRA NÃO PERDER', 540, 1340, 64, 'rgba(255,255,255,0.8)', 'Bebas'); ctx.globalAlpha = 1;
+}
+
+// ---------- captions + frame ----------
+let WORDS = [], WARP = null;
+function warp(t) { if (!WARP) return t; const A = WARP; if (t <= A[0][0]) return A[0][1] + (t - A[0][0]); for (let i = 1; i < A.length; i++) if (t <= A[i][0]) { const [n0, o0] = A[i - 1], [n1, o1] = A[i]; return o0 + (o1 - o0) * (t - n0) / (n1 - n0); } const L = A[A.length - 1]; return L[1] + (t - L[0]); }
+const HL = { vazio: RED, '3:07': RED, madrugada: YEL, fechado: RED, anos: RED, cano: YEL, gravar: YEL, passos: YEL, catorze: RED, silêncio: RED, esperando: RED, poeira: YEL, limpa: RED, destrancada: RED, sussurrou: RED, nome: RED, alguém: RED, quatro: YEL };
+const clean = w => w.replace(/[.,:;!?…"“”]+$/g, '').replace(/^["“”]/, '');
+function captions(tn, showCap) {
+  if (!showCap) return; let cur = null; for (const w of WORDS) if (tn >= w.start - 0.03 && tn < w.end + 0.45) cur = w;
+  if (!cur) return; const nx = WORDS[WORDS.indexOf(cur) + 1]; if (nx && tn >= nx.start - 0.03) cur = nx;
+  const s = clean(cur.text); if (!s) return; const disp = s.toUpperCase(); const age = tn - cur.start; const sc = age < 0.1 ? lerp(1.2, 1, easeOut(clamp(age / 0.1))) : 1;
+  let size = 190; ctx.font = `${size}px Bebas`; while (ctx.measureText(disp).width > W - 160) { size -= 8; ctx.font = `${size}px Bebas`; }
+  ctx.save(); ctx.translate(W / 2, 1470); ctx.scale(sc, sc); txt(disp, 0, 0, size, HL[s.toLowerCase()] || '#ffffff', 'Bebas', 'center', '#000', size * 0.1); ctx.restore();
+}
+function frame(tn) {
+  const t = warp(tn); const S = sceneAt(t); const u = t - T[S];
+  ctx.save(); ctx.clearRect(0, 0, W, H);
+  ({ S1: sceneS1, S2: sceneS2, S3: sceneS3, S4: sceneS4, S5: sceneS5, S6: sceneS6, S7: sceneS7, S8: sceneS8 })[S](u, t);
+  finish(t, S === 'S8' ? 0.6 : 0.8, S !== 'S8'); ctx.restore();
+  captions(tn, S !== 'S8');
+}
+window.setup = async (words, warpPts) => { WARP = warpPts || null; WORDS = words.filter(w => !/[\[\]]/.test(w.text)); await document.fonts.load('150px Bebas'); await document.fonts.load('800 38px Inter'); return true; };
+window.renderFrame = tn => { frame(tn); return cv.toDataURL('image/jpeg', 0.93); };
+window.ready = true;
+</script>
+</body>
+</html>

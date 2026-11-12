@@ -74,6 +74,45 @@ def tick(d=0.06):
 GEN = {"whoosh": whoosh, "boom": boom, "snap": snap, "pop": pop, "tick": tick}
 
 
+def thud(d=0.5):
+    n = int(SR * d)
+    t = np.arange(n) / SR
+    f = 52 + 40 * np.exp(-t * 30)
+    sub = np.sin(2 * np.pi * np.cumsum(f) / SR) * env(n, 0.002, 0.16)
+    knock = lowpass(rng.standard_normal(n), 420) * env(n, 0.001, 0.05) * 1.4
+    return np.tanh((sub * 1.6 + knock) * 1.2) * 0.95
+
+
+def heart(d=0.6):
+    out = np.zeros(int(SR * d))
+    for off, g in ((0.0, 1.0), (0.2, 0.75)):
+        h = thud(0.35) * g * 0.9
+        i = int(off * SR)
+        out[i:i + len(h)] += h[: len(out) - i]
+    return out
+
+
+def creak(d=2.6):
+    n = int(SR * d)
+    t = np.arange(n) / SR
+    f = 260 + 140 * np.sin(2 * np.pi * 0.37 * t) + 90 * t
+    carrier = np.sin(2 * np.pi * np.cumsum(f) / SR) + 0.5 * np.sin(4.02 * np.pi * np.cumsum(f) / SR)
+    am = 0.55 + 0.45 * np.sin(2 * np.pi * 9 * t + 3 * np.sin(2 * np.pi * 0.8 * t))
+    return carrier * am * np.sin(np.pi * np.clip(t / d, 0, 1)) ** 0.8 * 0.35
+
+
+def whisper(d=2.4):
+    n = int(SR * d)
+    t = np.arange(n) / SR
+    x = rng.standard_normal(n)
+    band = lowpass(x, 5200) - lowpass(x, 1800)
+    syl = 0.5 + 0.5 * np.sin(2 * np.pi * 3.3 * t + 1.2)
+    return band * syl * np.sin(np.pi * np.clip(t / d, 0, 1)) ** 1.5 * 1.8
+
+
+GEN.update({"thud": thud, "heart": heart, "creak": creak, "whisper": whisper})
+
+
 def main():
     cues = json.load(open(sys.argv[1]))
     out = sys.argv[2]

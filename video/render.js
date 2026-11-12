@@ -43,7 +43,7 @@ const server = http.createServer((req, res) => {
     const start = Number(a1 ?? 0), end = Number(a2 ?? meta.duration);
     const outFile = path.join(ROOT, 'build', `${part}-silent.mp4`);
     const ff = spawn('ffmpeg', ['-y', '-v', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-      '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', outFile], { stdio: ['pipe', 'inherit', 'inherit'] });
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', process.env.CRF || '18', '-pix_fmt', 'yuv420p', outFile], { stdio: ['pipe', 'inherit', 'inherit'] });
     const n = Math.round((end - start) * FPS); const t0 = Date.now();
     for (let i = 0; i < n; i++) {
       const t = start + i / FPS;
